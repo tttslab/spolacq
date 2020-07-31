@@ -27,10 +27,21 @@ Dependencies
 ------------
 - [Python](https://www.python.org/)
 - [Matlab](https://www.mathworks.com/): Used for syllable boundary detection.
-- To be updated
 
 
 About Author
 -------------
 - [Shinozaki Lab TITech](http://www.ts.ip.titech.ac.jp/)
 
+Usage
+-----
+Create your combined_sounds.wav from your own data (optional)
+```
+cd scripts
+python prep_combine_wavs.py --path=PATH_TO_RAW_AUDIOS_FOLDER
+```
+Run main script
+```
+cd egs
+bash run.bash DATA_NAME(arbitrary) MAX_K
+```
