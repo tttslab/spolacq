@@ -36,7 +36,7 @@ echo "mfcc extraction done"
 python mfcc_downsampling.py
 echo "downsampling done"
 
-# EMKmeans
+# ESKmeans
 cd -
 mkdir -p ../tools/eskmeans/results
 cd ../tools/eskmeans
