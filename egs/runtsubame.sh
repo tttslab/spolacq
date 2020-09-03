@@ -24,5 +24,6 @@ echo "activated environment"
 /usr/bin/env
 export PYTHONPATH=     ##remove PYTHONPATH if it have some path
 
-echo "run ./run.sh"
-basch ./run.bash test 10
+echo "bash ./run.bash test 10"
+bash ./run.bash test 10
+echo "finish"
