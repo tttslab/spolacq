@@ -2,7 +2,7 @@
 
 #$ -cwd                      ## Execute a job in current directory
 #$ -l q_node=1               ## Use number of node
-#$ -l h_rt=01:30:00          ## Running job time
+#$ -l h_rt=02:00:00          ## Running job time
 
 echo "start runtsubame.sh"
 /usr/bin/env
