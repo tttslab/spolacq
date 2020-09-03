@@ -12,7 +12,7 @@ module load intel
 module load cudnn/7.1
 module load nccl/2.2.13
 module load openmpi/2.1.2-pgi2018
-module matlab
+module load matlab
 
 echo "finish load module"
 export PATH="/gs/hs0/tga-tslecture/local/anaconda3/bin:$PATH"
