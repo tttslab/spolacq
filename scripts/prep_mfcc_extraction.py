@@ -1,20 +1,27 @@
-'''
+"""
     convert to mfcc
-'''
+"""
 
-import librosa, pickle
+import argparse
+import librosa
+from pathlib import Path
+import pickle
 
-wavlist_path = '../tools/syllables/thetaOscillator/wavlist.list'
-wavlist_root = '../tools/syllables/thetaOscillator/'
+parser = argparse.ArgumentParser()
+parser.add_argument("--wavlist", type=str, default="../tools/syllables/thetaOscillator/wavlist.list")
+parser.add_argument("--mfcc", type=str, default="../exp/pkls/mfccs.pkl")
+args = parser.parse_args()
 
-with open(wavlist_path) as f:
+wavlist_root = str(Path(args.wavlist).parent) + "/"
+
+with open(args.wavlist) as f:
     lines = f.readlines()
 
 
 mfccs = []
 for line in lines:
-    wav_path = ''
-    if '/' == line[0]:
+    wav_path = ""
+    if "/" == line[0]:
         # if absolute path
         wav_path = line.rstrip()
     else:
@@ -26,7 +33,5 @@ for line in lines:
     print(mfccs_per_wav.shape)
     mfccs.append(mfccs_per_wav)
 
-with open('../exp/pkls/mfccs.pkl', 'wb') as handle:
+with open(args.mfcc, "wb") as handle:
     pickle.dump(mfccs, handle)
-
-

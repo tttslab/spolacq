@@ -6,13 +6,16 @@ then
     exit 1
 fi 
 
+bash setup.sh
 
 # unsupervised syllable boundary detection by matlab
 mkdir -p ../tools/syllables/thetaOscillator/wavs
 mkdir -p ../tools/syllables/thetaOscillator/results
 cp ../combined_sounds/combined_sounds.wav ../tools/syllables/thetaOscillator/wavs/
 
-matlab -r "run('../tools/syllables/thetaOscillator/process_wavs.m');exit;"
+cd ../tools/syllables/thetaOscillator
+matlab -batch "process_wavs('wavlist.list', 'results/bounds_t.mat', 'results/output.csv')"
+cd -
 
 
 mkdir -p ../exp

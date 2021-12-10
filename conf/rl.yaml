@@ -1,0 +1,17 @@
+# Hyperparameters for focusing mechanism.
+num_clusters: 120
+num_per_group: 100 # Number of segments per cluster in the sound dictionary
+purify_rate: 0.97 # For updating action filter
+
+# ASR
+asr_model_name: "facebook/wav2vec2-large-robust-ft-libri-960h"
+use_real_time_asr: False
+
+# DQN algorithm
+buffer_size: 1000
+learning_starts: 50
+target_update_interval: 100
+total_timesteps: 50000 # training step of RL
+
+# Save trained DQN
+save: True

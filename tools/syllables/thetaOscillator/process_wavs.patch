@@ -1,0 +1,50 @@
+--- process_wavs.m	2021-12-05 02:51:19.830804831 +0900
++++ _process_wavs.m	2021-12-05 02:44:55.696761045 +0900
+@@ -1,7 +1,8 @@
+ % Perform syllable segmentation for all the files in wavs.list.
+ % Herman Kamper, kamperh@gmail.com, 2015.
+ 
+-clear all;
++% clear all;
++function process_wavs(wavlist, outmat, outcsv)
+ 
+ % Read list of wav files
+ % basename = 'mandarin_train';
+@@ -9,9 +10,11 @@
+ % basename = 'english_train';
+ % basename = 'LANG1_train';
+ basename = 'LANG2_train';
+-fid = fopen(['../wavs/' basename '.list']);
++% fid = fopen(['../wavs/' basename '.list']);
++fid = fopen(wavlist);
+ wav_files = textscan(fid, '%s', 'Delimiter', '\n');
+ wav_files = wav_files{1};
++fclose(fid);
+ 
+ % 2) Generate Gammatone filterbank center frequencies (log-spacing)
+ minfreq = 50;
+@@ -55,4 +58,23 @@
+ 
+ [bounds,bounds_t,osc_env,nucleii] = thetaOscillator(envelopes,center_frequency,Q_value,threshold);
+ 
+-save([basename '_bounds_t.mat'], 'wav_files', 'bounds_t')
++% save([basename '_bounds_t.mat'], 'wav_files', 'bounds_t')
++save(outmat, 'wav_files', 'bounds_t')
++
++fid = fopen(outcsv,'w');
++for i = 1:length(bounds_t)
++    for k = 1:length(bounds_t{i})
++        fprintf(fid,'%f ',bounds_t{i}(k));
++    end
++    fprintf(fid,'\n');
++end
++fclose(fid);
++
++return;
++
++% 6) Play syllables
++for k = 1:length(bounds_t{1})-1
++    disp('press button to hear the next syllable');
++    pause;
++    soundsc(x(bounds_t{1}(k)*fs:min(length(x),bounds_t{1}(k+1)*fs)),fs);
++end

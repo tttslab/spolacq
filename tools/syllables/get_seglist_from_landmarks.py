@@ -1,11 +1,31 @@
-import pickle as pickle
+"""
+This program is an API for ES-KMeans [H. Kamper et al., 2017].
+
+H. Kamper, K. Livescu, and S. J. Goldwater,
+"An embedded segmental K-means model for unsupervised segmentation and clustering of speech,"
+in Proc. ASRU, 2017.
+
+We have copied and modified some of the code available at
+https://github.com/kamperh/eskmeans,
+which is released under GNU General Public License version 3.
+
+Shinozaki Lab Tokyo Tech
+http://www.ts.ip.titech.ac.jp/
+2021
+"""
+
+import argparse
+import pickle
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--landmarks", type=str, default="landmarks/landmarks_syllable_seg.pkl")
+parser.add_argument("--seglist", type=str, default="seglist/seglist.pkl")
+args = parser.parse_args()
 
 N_LANDMARKS_MAX = 4
-landmarks_pkl_path = 'landmarks/landmarks_syllable_seg.pkl'
-seglist_pkl_path = 'seglist/seglist.pkl'
 
 def main():
-    with open(landmarks_pkl_path, "rb") as f:
+    with open(args.landmarks, "rb") as f:
         landmarks = pickle.load(f)
     
     seglist = []
@@ -18,7 +38,7 @@ def main():
             prev_landmark = landmarks[m][i]
         seglist.append(seglist_per_wav)
 
-    with open(seglist_pkl_path, "wb") as f:
+    with open(args.seglist, "wb") as f:
         pickle.dump(seglist, f, -1)
 
 main()

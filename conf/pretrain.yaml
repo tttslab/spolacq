@@ -1,0 +1,6 @@
+#args
+del_last: 1
+ext_fusion: 0
+rho: 2.0
+epoch: 20000
+batch_size: 16
