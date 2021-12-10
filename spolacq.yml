@@ -179,7 +179,6 @@ dependencies:
     - espnet-tts-frontend==0.0.3
     - filelock==3.0.12
     - g2p-en==2.1.0
-    - gammatone==1.0
     - google-auth==1.34.0
     - google-auth-oauthlib==0.4.5
     - grpcio==1.39.0
@@ -217,7 +216,6 @@ dependencies:
     - pydub==0.25.1
     - pyglet==1.5.15
     - pypinyin==0.42.0
-    - python-graphviz==0.17
     - pytorch-wpe==0.0.1
     - pyworld==0.3.0
     - pyyaml==5.4.1

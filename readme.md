@@ -53,6 +53,10 @@ conda activate spolacq
 cd egs
 sh runfood.sh DATA_DIR_NAME(arbitrary)
 ```
+If you are having [trouble with building box2d-py](https://github.com/openai/gym/issues/218), please try
+```
+sudo apt install xvfb xorg-dev libsdl2-dev swig cmake
+```
 
 License
 -------

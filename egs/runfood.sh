@@ -2,7 +2,7 @@
 
 if [ $# -ne 1 ]
 then
-    echo "Usage: sh runfod.sh DATA_DIR_NAME(arbitrary)" 
+    echo "Usage: sh runfood.sh DATA_DIR_NAME(arbitrary)" 
     exit 1
 fi 
 
