@@ -29,6 +29,8 @@ class DialogWorld:
     Dialogue partner for the language learning agent,
     which is the outside environment.
     An agent receives randomly chosen two images of food from DialogWorld.
+    Based on the internal state and the two images,
+    the agent selects an audio segment from the sound dictionary and speaks it.
     The DialogWorld recognizes an agent's utterance and returns feedback.
     
     :param MAX_STEP: Number of dialogue turns per episode.
@@ -110,8 +112,8 @@ class SpoLacq1(gym.Env):
     "Sound-Image Grounding Based Focusing Mechanism for Efficient Automatic Spoken Language Acquisition,"
     in Proc. Interspeech, 2020.
     
-    Internal state of spolacq agent is inside in this environment.
     An agent has a preferred color (RGB) as its internal state.
+    Internal state of spolacq agent is inside in this environment.
     An agent wants food that is close to that color.
     An agent receives randomly chosen two images of food from DialogWorld.
     An agent is rewarded when it speaks the name of the food it wants.
