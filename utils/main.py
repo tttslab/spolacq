@@ -36,17 +36,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     args = update_args(args.conf, args)
     
-    # Food type
-    FOODS = (
-        "CHERRY",
-        "GREEN PEPPER",
-        "LEMON",
-        "ORANGE",
-        "POTATO",
-        "STRAWBERRY",
-        "SWEET POTATO",
-        "TOMATO",
-    )
+    FOODS = tuple(f.upper().replace("_", " ") for f in args.obj_name_list)
     
     # Focusing mechanism
     image_features = np.load(args.image_nnfeat).squeeze()
@@ -104,6 +94,7 @@ if __name__ == "__main__":
         tensorboard_log="./spolacq_tmplog/",
         buffer_size=args.buffer_size,
         learning_starts=args.learning_starts,
+        seed=0,
     )
     
     # RL model training

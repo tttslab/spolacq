@@ -5,8 +5,11 @@ Spoken Language Acquisition From Conversation Based On Reinforcement Learning
 
 Overview
 --------
-This repository contains codes for the papers [Spoken Language Acquisition Based on Reinforcement Learning and Word Unit Segmentation](https://ieeexplore.ieee.org/abstract/document/9053326)  
-and [Sound-Image Grounding Based Focusing Mechanism for Efficient Automatic Spoken Language Acquisition](http://www.interspeech2020.org/uploadfile/pdf/Thu-2-4-4.pdf).
+This repository contains codes for the papers:
+
+- [Spoken Language Acquisition Based on Reinforcement Learning and Word Unit Segmentation](https://ieeexplore.ieee.org/abstract/document/9053326)
+- [Sound-Image Grounding Based Focusing Mechanism for Efficient Automatic Spoken Language Acquisition](http://www.interspeech2020.org/uploadfile/pdf/Thu-2-4-4.pdf)
+- [Pronunciation adaptive self speaking agent using WaveGrad](https://aaai-sas-2022.github.io/)
 
 
 Unsupervised syllable boundary detection
@@ -22,6 +25,24 @@ Unsupervised segmentation and clustering
 ----------------------------------------
 Word segmentation and clustering is performed using the
 [ES-KMeans](https://github.com/kamperh/eskmeans/tree/master/eskmeans) package. 
+
+
+Unsupervised sound-image correspondence learning
+------------------------------------------------
+We use the unsupervised sound-image correspondence learning described in:
+
+- D. Harwath, A. Torralba, and J. Glass,
+  "Unsupervised learning of spoken language with visual context," in *Proc. NIPS*, 2016.
+
+
+Self-supervised pronunciation adaptation
+----------------------------------------
+As the agent's speech organ, we use the neural vocoder described in:
+
+- N. Chen and Y. Zhang and H. Zen and R. J. Weiss and M. Norouzi and W. Chan,
+  "WaveGrad: Estimating Gradients for Waveform Generation," in *Proc. ICLR*, 2021.
+
+For implementation, we use the [wavegrad](https://github.com/lmnt-com/wavegrad) package.
 
 
 Dependencies
@@ -41,7 +62,7 @@ Create your combined_sounds.wav from your own data (optional)
 cd scripts
 python prep_combine_wavs.py --path=PATH_TO_RAW_AUDIOS_FOLDER
 ```
-Run main script
+Run main script for 3D homing task
 ```
 cd egs
 bash run.bash DATA_NAME(arbitrary) MAX_K
@@ -52,6 +73,13 @@ conda env create -f=spolacq.yml
 conda activate spolacq
 cd egs
 sh runfood.sh DATA_DIR_NAME(arbitrary)
+```
+Run main script for food task with WaveGrad speech organ-based agent
+```
+conda env create -f=spolacq.yml
+conda activate spolacq
+cd egs
+sh runwavegrad.sh DATA_DIR_NAME(arbitrary)
 ```
 If you are having [trouble with building box2d-py](https://github.com/openai/gym/issues/218), please try
 ```

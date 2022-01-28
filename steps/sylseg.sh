@@ -1,11 +1,11 @@
 data=$1
 work=$2
 combined_sounds=$3
-include_no=$4
+conf=$4
 
 # Make combined_sounds
 python utils/prepare_data.py $data
-python utils/prep_combine_wavs_clean_and_interval.py $data $combined_sounds $include_no
+python utils/prep_combine_wavs_clean_and_interval.py $data $combined_sounds $conf
 
 # Syllable segmentation
 mkdir -p $work

@@ -25,6 +25,29 @@ def add_voiceless_and_noise(audio_path: str, save_path: str, noise_db: int = 30,
     sound = first_noise + sound + last_noise
     sound.export(save_path, format="wav")
 
+
+def add_sil_and_noise(sound: AudioSegment, noise_db: int = 30, sil_len_ms: int = 1000, clean_dbfs = None):
+    from pydub.generators import WhiteNoise
+    if clean_dbfs is None:
+        noise_dbfs = sound.dBFS-noise_db
+    else:
+        noise_dbfs = clean_dbfs-noise_db
+    
+    def make_sil(duration: int) -> AudioSegment:
+        return AudioSegment.silent(duration=duration)
+    
+    def make_noise(duration: int, dbfs: float) -> AudioSegment:
+        return WhiteNoise().to_audio_segment(duration=duration, volume=dbfs)
+
+    noise = make_noise(len(sound), noise_dbfs)
+    sound = sound.overlay(noise)
+    
+    first_noise = make_noise(sil_len_ms, noise_dbfs)
+    last_noise  = make_noise(sil_len_ms, noise_dbfs)
+    sound = first_noise + sound + last_noise
+    return sound
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("load_dir", type=str)

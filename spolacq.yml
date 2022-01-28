@@ -247,5 +247,4 @@ dependencies:
     - typeguard==2.12.1
     - unidecode==1.2.0
     - wandb==0.11.2
-    - wavegrad==0.1.4
     - werkzeug==2.0.1

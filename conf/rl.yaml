@@ -1,7 +1,7 @@
 # Hyperparameters for focusing mechanism.
-num_clusters: 120
-num_per_group: 100 # Number of segments per cluster in the sound dictionary
-purify_rate: 0.97 # For updating action filter
+num_clusters: 40
+num_per_group: 500 # Number of segments per cluster in the sound dictionary
+purify_rate: 0.9 # For updating action filter
 
 # ASR
 asr_model_name: "facebook/wav2vec2-large-robust-ft-libri-960h"
@@ -11,7 +11,11 @@ use_real_time_asr: False
 buffer_size: 1000
 learning_starts: 50
 target_update_interval: 100
-total_timesteps: 50000 # training step of RL
+total_timesteps: 200000 # training step of RL
 
 # Save trained DQN
 save: True
+
+obj_name_list: ['apple', 'banana', 'carrot', 'cherry', 'cucumber', 'green_pepper', 'hyacinth_bean', 'lemon', 'onion', 'orange', 'potato', 'sliced_bread', 'small_cabbage', 'strawberry', 'sweet_potato', 'tomato']
+# if combined_sounds include "NO"
+include_no: False

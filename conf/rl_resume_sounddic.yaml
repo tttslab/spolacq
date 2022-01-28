@@ -1,0 +1,30 @@
+# Hyperparameters for focusing mechanism.
+num_clusters: 120
+num_per_group: 100 # Number of segments per cluster in the sound dictionary
+purify_rate: 0.97 # For updating action filter
+
+# ASR
+asr_model_name: "facebook/wav2vec2-large-robust-ft-libri-960h"
+
+# DQN algorithm
+buffer_size: 16
+learning_starts: 0
+batch_size: 16
+train_freq: 16
+
+reset_num_timesteps: False
+
+obj_name_list: ["cherry", "green_pepper", "lemon", "orange", "potato", "strawberry", "sweet_potato", "tomato"]
+# if combined_sounds include "NO"
+include_no: False
+
+num_epoch: 1000
+
+load: True
+save: True
+
+use_wavegrad: False
+
+add_sin_noise: True
+sin_noise_db: 0
+sin_noise_freq: 300

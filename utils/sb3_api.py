@@ -80,10 +80,17 @@ class CustomFeaturesExtractor(BaseFeaturesExtractor):
         self.action_filter = nn.parameter.Parameter(
             torch.ones((cluster_centers.shape[0], self.num_per_group)), requires_grad=False)
         
-        if action_mask:
-            self.action_mask = nn.parameter.Parameter(
-                torch.full((cluster_centers.shape[0]*self.num_per_group,), -float("inf")), requires_grad=False)
-            self.action_mask[action_mask] = 0
+        if action_mask: self.set_action_mask(action_mask)
+    
+    def set_action_mask(self, action_mask: List[int]) -> None:
+        self.action_mask = nn.parameter.Parameter(
+            torch.full(
+                (self.cluster_centers.size()[0]*self.num_per_group,),
+                -float("inf"),
+            ).to(self.cluster_centers.device),
+            requires_grad=False,
+        )
+        self.action_mask[action_mask] = 0
     
     def forward(self, observation: Dict[str, torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         state = torch.tanh(self.state_net(observation["state"]))
@@ -256,3 +263,7 @@ class CustomDQN(DQN):
 
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
         self.logger.record("train/loss", np.mean(losses))
+    
+    def set_action_mask(self, action_mask: List[int]) -> None:
+        self.policy.q_net.features_extractor.set_action_mask(action_mask)
+        self.policy.q_net_target.features_extractor.set_action_mask(action_mask)

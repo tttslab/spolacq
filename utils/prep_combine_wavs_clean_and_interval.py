@@ -9,25 +9,37 @@ import os
 
 from pydub import AudioSegment
 from tqdm import tqdm
+import yaml
+
+
+def update_args(yamlpath, opts):
+    opts = vars(opts) #Namespace -> dict
+    with open(yamlpath, "r") as f:
+        conf = yaml.safe_load(f)
+    assert set(opts.keys()).isdisjoint(set(conf.keys())) #opts & conf == {}
+    opts.update(conf) #opts += conf
+    return argparse.Namespace(**opts) #dict -> Namespace
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument("path", type=str)
 parser.add_argument("combined_sounds", type=str)
-parser.add_argument("include_no", type=str, choices=["True", "False"])
+parser.add_argument("conf", type=str)
 args = parser.parse_args()
+args = update_args(args.conf, args)
 
 filenames = []
-obj_name_list = ["cherry", "green_pepper", "lemon", "orange", "potato", "strawberry", "sweet_potato", "tomato"]
 
-for obj_name in obj_name_list:
+for obj_name in args.obj_name_list:
     objwav = glob(f"{args.path}/{obj_name}/description/clean/*.wav")
-    repeat_objwav = objwav*22 + objwav[0:2]
+    q, r = divmod(720//len(args.obj_name_list), len(objwav))
+    repeat_objwav = objwav*q + objwav[0:r]
     filenames += repeat_objwav
     assert len(objwav) == 4, "mismatch in len(objwav)"
 
 parent_path = os.path.normpath(args.path+"/..")
-if args.include_no == "True":
-    filenames += [f"{parent_path}/no.wav"] * 90
+if args.include_no:
+    filenames += [f"{parent_path}/no.wav"] * 20
 
 random.seed(202110291946)
 random.shuffle(filenames)

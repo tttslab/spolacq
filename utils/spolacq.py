@@ -4,13 +4,20 @@ import random
 from typing import Callable, List, Tuple, Union
 
 import gym
+import h5py
 import librosa
 import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
+from pydub import AudioSegment
+import resampy
 from stable_baselines3.common.base_class import BaseAlgorithm
-from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
+from tensorboard.backend.event_processing import event_accumulator, tag_types
+import torch
 from tqdm import tqdm
+
+from add_sil_and_noise import add_sil_and_noise
+from add_sin_noise import add_sin_noise
 
 class Food():
     """
@@ -81,7 +88,7 @@ class DialogWorld:
         self.rightfood = random.choice(self.food_storage)
         self.done = False
     
-    def step(self, action: Union[np.ndarray, str]) -> Tuple[Tuple[bool, int], bool]:
+    def step(self, action: Union[np.ndarray, str]) -> Tuple[Tuple[bool, int, str], bool]:
         text = self.asr(action)
         if self.hasNO:
             correct_answer = ["NO", self.leftfood.name, self.rightfood.name]
@@ -98,19 +105,15 @@ class DialogWorld:
             self.done = True
         self.leftfood = random.choice(self.food_storage)
         self.rightfood = random.choice(self.food_storage)
-        return (dlg_success, foodID), self.done
+        return (dlg_success, foodID, text), self.done
     
     def observe(self) -> dict:
         return dict(num=self.num, leftfood=self.leftfood, rightfood=self.rightfood)
 
 
-class SpoLacq1(gym.Env):
+class SpoLacq(gym.Env):
     """
-    RL environment described in the paper
-    
-    M. Zhang, T. Tanaka, W. Hou, S. Gao, T. Shinozaki,
-    "Sound-Image Grounding Based Focusing Mechanism for Efficient Automatic Spoken Language Acquisition,"
-    in Proc. Interspeech, 2020.
+    Base RL environment
     
     An agent has a preferred color (RGB) as its internal state.
     Internal state of spolacq agent is inside in this environment.
@@ -122,8 +125,6 @@ class SpoLacq1(gym.Env):
         the type of the return value of ASR. For example, Wav2Vec2 returns
         a space-delimited sequence of uppercase letters, e.g., GREEN PEPPER.
     :param datadir: A directory of food images.
-    :param sounddic: If args.use_real_time_asr==True, it is an object of
-        List[np.ndarray]; otherwise, it is an object of List[str].
     :param asr: If args.use_real_time_asr==True, you can use any ASR of
         Callable[[np.ndarray], str]; otherwise, it is the identity function,
         i.e., lambda x: x.
@@ -135,12 +136,10 @@ class SpoLacq1(gym.Env):
         self,
         FOODS: tuple,
         datadir: str,
-        sounddic: Union[List[np.ndarray], List[str]],
         asr: Callable[[Union[np.ndarray, str]], str],
     ):
         super().__init__()
         self.dlgworld = DialogWorld(1, False, FOODS, datadir, asr)
-        self.action_space = gym.spaces.Discrete(len(sounddic))
         self.observation_space = gym.spaces.Dict(
             dict(
                 state=gym.spaces.Box(low=0, high=self.MAX_RGB, shape=(3,)),
@@ -153,10 +152,7 @@ class SpoLacq1(gym.Env):
                 rightfoodID=gym.spaces.Discrete(len(FOODS)),
             )
         )
-        # Read sound files for sound dictionary
-        self.sounddic = sounddic # convert categorical ID to wave utterance
         self.FOODS = FOODS
-        self.succeeded_log = list()
         self.reset()
     
     def reset(self) -> dict:
@@ -168,16 +164,9 @@ class SpoLacq1(gym.Env):
         self.preferredB = random.random()
         return self.observe()
     
-    def step(self, action: int) -> Tuple[dict, int, bool, dict]:
+    def step(self, action) -> Tuple[dict, int, bool, dict]:
         """:param action: A number in self.action_space"""
-        old_state = self.observe()
-        utterance = self.sounddic[action]
-        feedback, dlg_done = self.dlgworld.step(utterance)
-        self.update_internal_state(feedback)
-        new_state = self.observe()
-        reward = self.reward(old_state, new_state, feedback)
-        if reward > 0: self.succeeded_log.append(action)
-        return new_state, reward, dlg_done, dict()
+        raise NotImplementedError
     
     def observe(self) -> dict:
         insideobs = np.array([self.preferredR, self.preferredG, self.preferredB])
@@ -193,13 +182,13 @@ class SpoLacq1(gym.Env):
             rightfoodID=self.FOODS.index(outsideobs["rightfood"].name),
         )
     
-    def update_internal_state(self, feedback: Tuple[bool, int]) -> None:
+    def update_internal_state(self, feedback: Tuple[bool, int, str]) -> None:
         # Initialize the internal state of spolacq agent
         self.preferredR = random.random()
         self.preferredG = random.random()
         self.preferredB = random.random()
     
-    def reward(self, old_state: dict, new_state: dict, feedback: Tuple[bool, int]) -> int:
+    def reward(self, old_state: dict, new_state: dict, feedback: Tuple[bool, int, str]) -> int:
         if not feedback[0]: # failed dialogue
             return 0
         leftfood_distance = np.linalg.norm(old_state["state"] - old_state["leftfoodRGB"])
@@ -230,6 +219,175 @@ class SpoLacq1(gym.Env):
     
     def seed(self, seed=None) -> None:
         random.seed(seed)
+
+
+class SpoLacq1(SpoLacq):
+    """
+    RL environment described in the paper
+    
+    M. Zhang, T. Tanaka, W. Hou, S. Gao, T. Shinozaki,
+    "Sound-Image Grounding Based Focusing Mechanism for Efficient Automatic Spoken Language Acquisition,"
+    in Proc. Interspeech, 2020.
+    
+    :param FOODS: Tuple of food names. The type of food names must match
+        the type of the return value of ASR. For example, Wav2Vec2 returns
+        a space-delimited sequence of uppercase letters, e.g., GREEN PEPPER.
+    :param datadir: A directory of food images.
+    :param sounddic: If args.use_real_time_asr==True, it is an object of
+        List[np.ndarray]; otherwise, it is an object of List[str].
+    :param asr: If args.use_real_time_asr==True, you can use any ASR of
+        Callable[[np.ndarray], str]; otherwise, it is the identity function,
+        i.e., lambda x: x.
+    """
+    
+    def __init__(
+        self,
+        FOODS: tuple,
+        datadir: str,
+        sounddic: Union[List[np.ndarray], List[str]],
+        asr: Callable[[Union[np.ndarray, str]], str],
+    ):
+        super().__init__(FOODS, datadir, asr)
+        self.action_space = gym.spaces.Discrete(len(sounddic))
+        # Read sound files for sound dictionary
+        self.sounddic = sounddic # convert categorical ID to wave utterance
+        self.succeeded_log = list()
+    
+    def step(self, action) -> Tuple[dict, int, bool, dict]:
+        """:param action: A number in self.action_space"""
+        old_state = self.observe()
+        utterance = self.sounddic[action]
+        feedback, dlg_done = self.dlgworld.step(utterance)
+        self.update_internal_state(feedback)
+        new_state = self.observe()
+        reward = self.reward(old_state, new_state, feedback)
+        if reward > 0: self.succeeded_log.append(action)
+        return new_state, reward, dlg_done, dict()
+
+
+class SpoLacq2(SpoLacq):
+    """
+    RL environment for a WaveGrad speech organ-based agent,
+    which is described in the paper:
+    
+    T. Tanaka, R. Komatsu, T. Okamoto, and T. Shinozaki,
+    "Pronunciation adaptive self speaking agent using WaveGrad,"
+    in Proc. AAAI SAS, accepted, 2022.
+    
+    :param FOODS: Tuple of food names. The type of food names must match
+        the type of the return value of ASR. For example, Wav2Vec2 returns
+        a space-delimited sequence of uppercase letters, e.g., GREEN PEPPER.
+    :param datadir: A directory of food images.
+    :param asr: You can use any ASR of Callable[[np.ndarray], str].
+    :param speech_organ: An instance of utils.main_wavegrad.WaveGradWrapper
+        or utils.main_wavegrad.SoundDict.
+    :param action_mask: Only those actions can be selected.
+    :param add_sin_noise: Whether to add sine noise to the agent's utterance.
+    :param sin_noise_db: dB of sine noise.
+    :param sin_noise_freq: Frequency of sine noise.
+    """
+    
+    def __init__(
+        self,
+        FOODS: tuple,
+        datadir: str,
+        asr: Callable[[np.ndarray], str],
+        speech_organ,
+        action_mask: List[int],
+        add_sin_noise: bool,
+        sin_noise_db = None,
+        sin_noise_freq = None,
+    ):
+        super().__init__(FOODS, datadir, asr)
+        self.action_space = gym.spaces.Discrete(len(speech_organ))
+        self.action_mask = action_mask
+        self.speech_organ = speech_organ
+        self.num_image = len(self.dlgworld.food_storage)
+        
+        self.epoch = 0
+        self.iteration = 0
+        self.sum_reward = 0
+        
+        # log
+        self.audio = dict()
+        self.history = list()
+        self.reward_list = list()
+        
+        # sin noise
+        self.add_sin_noise = add_sin_noise
+        self.sin_noise_db = sin_noise_db
+        self.sin_noise_freq = sin_noise_freq
+    
+    def step(self, action) -> Tuple[dict, int, bool, dict]:
+        """:param action: A number in self.action_space"""
+        old_state = self.observe()
+        action = self.action_mask.index(action)
+        utterance = self.synthesize(action)
+        feedback, dlg_done = self.dlgworld.step(utterance)
+        self.update_internal_state(feedback)
+        new_state = self.observe()
+        reward = self.reward(old_state, new_state, feedback)
+        self.update_info(action, reward, feedback[2])
+        return new_state, reward, dlg_done, dict()
+    
+    def synthesize(self, action: int) -> np.ndarray:
+        utterance, sr = self.speech_organ.predict(action)
+        # utterance: torch.tensor, ndim == 1. -1 ~ 1.
+        self.log_audio(utterance, self.epoch, self.iteration)
+        utterance = self.recog_preprocess(utterance, sr=sr, noise_db=30, sil_len_ms=1000)
+        return utterance
+    
+    def log_audio(self, audio: torch.Tensor, epoch: int, iteration: int) -> None:
+        audio = audio.cpu().unsqueeze(0).numpy()
+        savename = f"epoch{epoch:05}_iter{iteration:05}.wav"
+        self.audio[savename] = audio
+    
+    def recog_preprocess(self, audio: torch.Tensor, sr: int, noise_db: int, sil_len_ms: int) -> np.ndarray:
+        clean_elem = audio.cpu().numpy()
+        clean_elem = AudioSegment(
+            data=(clean_elem * (1 << 32 - 1)).astype("int32").tobytes(),
+            sample_width=4,
+            frame_rate=sr,
+            channels=1,
+        )
+        noised_elem = add_sil_and_noise(clean_elem, noise_db=noise_db, sil_len_ms=sil_len_ms)
+        if self.add_sin_noise:
+            noised_elem = add_sin_noise(
+                noised_elem,
+                noise_db=self.sin_noise_db,
+                freq=self.sin_noise_freq,
+                sample_rate=sr,
+                clean_dbfs=clean_elem.dBFS,
+            )
+        noised_elem = np.frombuffer(noised_elem.set_frame_rate(sr).raw_data, dtype="int32")
+        noised_elem = (noised_elem / (1 << 32 - 1)).astype("float32")
+        noised_elem = resampy.resample(noised_elem, sr, 16000)
+        return noised_elem
+    
+    def update_info(self, action: int, reward: int, recognition_result: str) -> None:
+        self.history += [((self.epoch, self.iteration), action, reward, recognition_result)]
+        self.speech_organ.set_results(reward)
+        self.sum_reward += reward
+        self.iteration += 1
+        if self.iteration == self.num_image:
+            self.reward_list.append(self.sum_reward/self.num_image)
+            self.sum_reward = 0
+            self.iteration = 0
+            self.epoch += 1
+    
+    def save_audio(self, audio_log_dir: str) -> None:
+        with h5py.File(audio_log_dir, "w") as f:
+            for savename, wave in self.audio.items():
+                f[savename] = wave
+    
+    def save_history(self, path: str) -> None:
+        with open(path, "w") as f:
+            for time, action, reward, recognition_result in self.history:
+                f.write(f"{time[0]},{time[1]}|{action}|{reward}|{recognition_result}\n")
+    
+    def save_reward(self, path: str) -> None:
+        with open(path, "w") as f:
+            f.write("\n".join([str(x) for x in self.reward_list]))
 
 
 def asr_segments(segment_pkl: str, asr: Callable[[np.ndarray], str], num_segment: int
@@ -292,26 +450,38 @@ def test(num_episode: int, env: SpoLacq1, model: BaseAlgorithm) -> None:
                 break
 
 
-def plot_reward(tb_path: str, save_path: str) -> None:
+def plot_reward(tb_paths: List[str], label: str) -> None:
     """
     Plot the tensorboard log with matplotlib.
     
-    :param tb_path: spolacq_tmplog/*/events.out.tfevents.*
+    :param tb_paths: list of spolacq_tmplog/*/events.out.tfevents.*
+    :param label: legend of plot
     """
     
-    event = EventAccumulator(tb_path)
-    event.Reload()
-    ep_rew_mean = event.Scalars("rollout/ep_rew_mean")
+    x = list()
+    y = list()
     
-    x = np.zeros(len(ep_rew_mean))
-    y = np.zeros(len(ep_rew_mean))
+    for tb_path in tb_paths:
+        event = event_accumulator.EventAccumulator(
+            tb_path, size_guidance={tag_types.SCALARS: 1000000})
+        event.Reload()
+        ep_rew_mean = event.Scalars("rollout/ep_rew_mean")
+        every100 = list()
+        
+        for r in ep_rew_mean:
+            if r.step % 100 == 0:
+                every100.append(r.value)
+            if r.step % 1000 == 0:
+                x.append(r.step)
+                y.append(np.mean(every100))
+                assert len(every100) == 10
+                every100 = list()
     
-    for i, r in enumerate(ep_rew_mean):
-        x[i] = r.step
-        y[i] = r.value
+    yticks = np.array(range(0, 11, 1))/10
     
-    plt.plot(x, y)
+    plt.plot(x, y, label=label)
     plt.xlabel("Episode")
-    plt.ylabel("Reward (moving average of 100 steps)")
-    plt.grid()
-    plt.savefig(save_path)
+    plt.ylabel("Reward (moving average of 1000 episodes)")
+    plt.yticks(ticks=yticks, labels=[str(i) for i in yticks])
+    plt.grid(visible=True, which="both")
+    plt.legend()
