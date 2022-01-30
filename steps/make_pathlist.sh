@@ -1,6 +1,7 @@
 datadir=$1
 workdir=$2
 segdir=$workdir/feat_pkls
+wavdir=$workdir/noisy_trimed_wavs
 conf=$3
 
 python utils/make_plist.py $datadir \
@@ -12,3 +13,4 @@ python utils/make_plist.py $datadir \
 # seg_audios.txt: [audio_path]
 # Segmented audios used to make utterance.
 find $segdir/*.pkl | sort > $workdir/seg_audios.txt
+find $wavdir/*.wav | sort > $workdir/noisy_trimed_wavs.txt

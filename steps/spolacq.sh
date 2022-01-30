@@ -9,7 +9,6 @@ python utils/main.py $conf \
                      $work \
                      $work/unsup_backend.pth.tar \
                      $work/data/vocab_list_k12000_8type_clean_limited_data_new720db20k2clu_asr.txt \
-                     $work/seg_audios.txt \
+                     $work/noisy_trimed_wavs.txt \
                      $work/data/train_img_fea_sim_8type_clean_limited_data.npy \
-                     $work/data/new720db20k2_fea_sim_8type_clean_limited_data.npy \
-                     $work/param/succeeded.log
+                     $work/data/new720db20k2_fea_sim_8type_clean_limited_data.npy

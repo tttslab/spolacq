@@ -1,7 +1,9 @@
 from glob import glob
+import json
+import os
 import pickle
 import random
-from typing import Callable, List, Tuple, Union
+from typing import Callable, List, Optional, Tuple, Union
 
 import gym
 import h5py
@@ -11,6 +13,8 @@ import numpy as np
 from PIL import Image
 from pydub import AudioSegment
 import resampy
+from scipy.spatial.distance import cdist
+from sklearn.cluster import KMeans
 from stable_baselines3.common.base_class import BaseAlgorithm
 from tensorboard.backend.event_processing import event_accumulator, tag_types
 import torch
@@ -18,8 +22,9 @@ from tqdm import tqdm
 
 from add_sil_and_noise import add_sil_and_noise
 from add_sin_noise import add_sin_noise
+from wav2vec2_api import ASR
 
-class Food():
+class Food:
     """
     Definition of food.
     It has name, image, and the mean RGB of an image.
@@ -249,7 +254,6 @@ class SpoLacq1(SpoLacq):
     ):
         super().__init__(FOODS, datadir, asr)
         self.action_space = gym.spaces.Discrete(len(sounddic))
-        # Read sound files for sound dictionary
         self.sounddic = sounddic # convert categorical ID to wave utterance
         self.succeeded_log = list()
     
@@ -388,6 +392,84 @@ class SpoLacq2(SpoLacq):
     def save_reward(self, path: str) -> None:
         with open(path, "w") as f:
             f.write("\n".join([str(x) for x in self.reward_list]))
+
+
+class RLPreprocessor:
+    """
+    Preprocessor for reinforcement learning.
+
+    :param obj_name_list: List of food names
+    :param segment_nnfeat: Path of segmented audio features
+    :param image_nnfeat: Path of training image features
+    """
+    def __init__(
+        self,
+        obj_name_list: List[str],
+        segment_nnfeat: str,
+        image_nnfeat: Optional[str] = None,
+    ):
+        self.FOODS = tuple(f.upper().replace("_", " ") for f in obj_name_list)
+        self.segment_features = np.load(segment_nnfeat).squeeze()
+        if image_nnfeat: self.image_features = np.load(image_nnfeat).squeeze()
+    
+    def recognize(
+        self,
+        segment_list: str,
+        asr_model_name: str,
+        use_real_time_asr: bool = False,
+        save: bool = True,
+        wav2vec2_path = "./wav2vec2/",
+    ) -> Callable[[Union[np.ndarray, str]], str]:
+        """
+        Recognize all audio segments in a file segment_list.
+        """
+        if os.path.isdir(wav2vec2_path):
+            # Try to load model from local
+            with open(f"{wav2vec2_path}config.json") as f:
+                conf = json.load(f)
+            if conf["_name_or_path"] == asr_model_name:
+                asr = ASR(wav2vec2_path)
+            else:
+                asr = ASR(asr_model_name)
+        else:
+            asr = ASR(asr_model_name)
+            if save: asr.save(wav2vec2_path)
+        
+        self.segment_wave = list()
+        self.segment_text = list()
+        self.segment_path = list()
+        with open(segment_list) as f:
+            for path in tqdm(f, desc="ASR of audio segments", total=self.segment_features.shape[0]):
+                path = path.strip()
+                utterance, _ = librosa.load(path, sr=16000)
+                transcription = asr(utterance)
+                
+                self.segment_wave.append(utterance)
+                self.segment_text.append(transcription)
+                self.segment_path.append(path)
+        if use_real_time_asr:
+            return asr
+        else:
+            return lambda x: x
+    
+    def focus(self, num_clusters: int, num_per_group: int):
+        kmeans = KMeans(n_clusters=num_clusters, random_state=2).fit(self.image_features)
+        similarity = -cdist(kmeans.cluster_centers_, self.segment_features)
+        focused_segment_ids = similarity.argsort(axis=1)[:, -num_per_group:].flatten()
+        
+        # Make sound dictionary, for spolacq agent, which
+        # converts categorical ID to wave utterance.
+        sounddic_wave = [self.segment_wave[i] for i in focused_segment_ids]
+        sounddic_text = [self.segment_text[i] for i in focused_segment_ids]
+        sounddic_path = [self.segment_path[i] for i in focused_segment_ids]
+        self.check(sounddic_text)
+        return sounddic_wave, sounddic_text, sounddic_path, kmeans.cluster_centers_
+    
+    def check(self, sounddic_text: List[str]) -> None:
+        # Check if sounddic covers every food
+        res_dict = {f: sounddic_text.count(f) for f in self.FOODS}
+        print(res_dict, flush=True)
+        assert 0 not in res_dict.values(), "The sound dictionary does not cover every food."
 
 
 def asr_segments(segment_pkl: str, asr: Callable[[np.ndarray], str], num_segment: int

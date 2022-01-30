@@ -1,16 +1,10 @@
 import argparse
-import os
 import pickle
 
-import matplotlib.pyplot as plt
-import numpy as np
-from scipy.spatial.distance import cdist
-from sklearn.cluster import KMeans
 import yaml
 
 from sb3_api import CustomDQNPolicy, CustomDQN
-from spolacq import SpoLacq1, asr_segments, test
-from wav2vec2_api import ASR
+from spolacq import SpoLacq1, RLPreprocessor, test
 
 
 def update_args(yamlpath, opts):
@@ -29,56 +23,36 @@ if __name__ == "__main__":
     parser.add_argument("workdir", type=str)
     parser.add_argument("load_state_dict_path", type=str)
     parser.add_argument("save_asr_result_path", type=str)
-    parser.add_argument("segment_pkl", type=str)
+    parser.add_argument("segment_list", type=str)
     parser.add_argument("image_nnfeat", type=str)
     parser.add_argument("segment_nnfeat", type=str)
-    parser.add_argument("succeeded_log", type=str)
     args = parser.parse_args()
     args = update_args(args.conf, args)
     
-    FOODS = tuple(f.upper().replace("_", " ") for f in args.obj_name_list)
-    
-    # Focusing mechanism
-    image_features = np.load(args.image_nnfeat).squeeze()
-    segment_features = np.load(args.segment_nnfeat).squeeze()
-    kmeans = KMeans(n_clusters=args.num_clusters, random_state=2).fit(image_features)
-    similarity = -cdist(kmeans.cluster_centers_, segment_features)
-    focused_segment_ids = similarity.argsort(axis=1)[:, -args.num_per_group:].flatten()
-    
-    # ASR of segmented wavs
-    wav2vec2_path = "./wav2vec2/"
-    if os.path.isdir(wav2vec2_path):
-        asr = ASR(wav2vec2_path)
-    else:
-        asr = ASR(args.asr_model_name)
-        if args.save: asr.save(wav2vec2_path)
-    segment_wave, segment_text, segment_path, segment_spec = asr_segments(
-        args.segment_pkl, asr, segment_features.shape[0])
-    
-    # Make sound dictionary, for spolacq agent, which
-    # converts categorical ID to wave utterance.
-    sounddic_wave = [segment_wave[i] for i in focused_segment_ids]
-    sounddic_text = [segment_text[i] for i in focused_segment_ids]
-    sounddic_path = [segment_path[i] for i in focused_segment_ids]
-    sounddic_spec = [segment_spec[i] for i in focused_segment_ids]
-    
-    # Check if sounddic covers every food
-    res_dict = {}
-    for f in FOODS: res_dict[f] = sounddic_text.count(f)
-    print(res_dict, flush=True)
-    assert 0 not in res_dict.values(), "The sound dictionary does not cover every food."
+    # Preprocess for RL
+    preprocessor = RLPreprocessor(
+        args.obj_name_list,
+        args.segment_nnfeat,
+        args.image_nnfeat,
+    )
+    asr = preprocessor.recognize(
+        args.segment_list,
+        args.asr_model_name,
+        args.use_real_time_asr,
+    )
+    sounddic_wave, sounddic_text, sounddic_path, cluster_centers = preprocessor.focus(
+        args.num_clusters, args.num_per_group)
     
     # RL environment creation
     if args.use_real_time_asr:
-        env = SpoLacq1(FOODS, args.datadir, sounddic_wave, asr)
+        env = SpoLacq1(preprocessor.FOODS, args.datadir, sounddic_wave, asr)
     else:
-        env = SpoLacq1(FOODS, args.datadir, sounddic_text, lambda x: x)
-        del asr
+        env = SpoLacq1(preprocessor.FOODS, args.datadir, sounddic_text, asr)
     
     # RL learning model creation
     policy_kwargs = dict(
         features_extractor_kwargs=dict(
-            cluster_centers=kmeans.cluster_centers_,
+            cluster_centers=cluster_centers,
             load_state_dict_path=args.load_state_dict_path,
             num_per_group=args.num_per_group,
             purify_rate=args.purify_rate,
@@ -107,18 +81,6 @@ if __name__ == "__main__":
         
         with open(args.workdir+"/sounddic.pkl", "wb") as f:
             pickle.dump(sounddic_wave, f)
-        
-        with open(args.save_asr_result_path, "w") as f:
-            for path, transcription in zip(sounddic_path, sounddic_text):
-                if transcription in FOODS:
-                    label = FOODS.index(transcription)
-                else:
-                    label = -1
-                f.write(f"{path.split('/')[-1]} {label}\n")
-        
-        with open(args.succeeded_log, "w") as f:
-            for log in env.succeeded_log:
-                f.write(f"{sounddic_path[log].split('/')[-1]},{sounddic_text[log].replace(' ', '_').lower()},{log}\n")
     
     # Test the learnt agent
     test(10, env, model)

@@ -29,7 +29,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchvision.models as models
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.type_aliases import Schedule, GymEnv
 from stable_baselines3.dqn.dqn import DQN
