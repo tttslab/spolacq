@@ -22,7 +22,6 @@ if __name__ == "__main__":
     parser.add_argument("datadir", type=str)
     parser.add_argument("workdir", type=str)
     parser.add_argument("load_state_dict_path", type=str)
-    parser.add_argument("save_asr_result_path", type=str)
     parser.add_argument("segment_list", type=str)
     parser.add_argument("image_nnfeat", type=str)
     parser.add_argument("segment_nnfeat", type=str)

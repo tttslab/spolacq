@@ -424,13 +424,7 @@ class RLPreprocessor:
         Recognize all audio segments in a file segment_list.
         """
         if os.path.isdir(wav2vec2_path):
-            # Try to load model from local
-            with open(f"{wav2vec2_path}config.json") as f:
-                conf = json.load(f)
-            if conf["_name_or_path"] == asr_model_name:
-                asr = ASR(wav2vec2_path)
-            else:
-                asr = ASR(asr_model_name)
+            asr = ASR(wav2vec2_path)
         else:
             asr = ASR(asr_model_name)
             if save: asr.save(wav2vec2_path)

@@ -137,13 +137,7 @@ if __name__ == "__main__":
     # Prepare ASR
     wav2vec2_path = "./wav2vec2/"
     if os.path.isdir(wav2vec2_path):
-        # Try to load model from local
-        with open(f"{wav2vec2_path}config.json") as f:
-            conf = json.load(f)
-        if conf["_name_or_path"] == args.asr_model_name:
-            asr = ASR(wav2vec2_path)
-        else:
-            asr = ASR(args.asr_model_name)
+        asr = ASR(wav2vec2_path)
     else:
         asr = ASR(args.asr_model_name)
     
