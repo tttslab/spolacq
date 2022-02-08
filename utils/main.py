@@ -3,7 +3,7 @@ import pickle
 
 import yaml
 
-from sb3_api import CustomDQNPolicy, CustomDQN
+from sb3_api import CustomDQNPolicy, CustomDQN, CustomFeaturesExtractor
 from spolacq import SpoLacq1, RLPreprocessor, test
 
 
@@ -22,6 +22,7 @@ if __name__ == "__main__":
     parser.add_argument("datadir", type=str)
     parser.add_argument("workdir", type=str)
     parser.add_argument("load_state_dict_path", type=str)
+    parser.add_argument("segment_pkl", type=str)
     parser.add_argument("segment_list", type=str)
     parser.add_argument("image_nnfeat", type=str)
     parser.add_argument("segment_nnfeat", type=str)
@@ -42,14 +43,24 @@ if __name__ == "__main__":
     sounddic_wave, sounddic_text, sounddic_path, cluster_centers = preprocessor.focus(
         args.num_clusters, args.num_per_group)
     
+    # Spoken questions (simplest case). You may add noise to wav files.
+    question_paths = [
+        ("data/which_do_you_want.wav", 0),
+        ("data/which_do_not_you_want.wav", 1),
+    ]
+
     # RL environment creation
-    if args.use_real_time_asr:
-        env = SpoLacq1(preprocessor.FOODS, args.datadir, sounddic_wave, asr)
-    else:
-        env = SpoLacq1(preprocessor.FOODS, args.datadir, sounddic_text, asr)
+    env = SpoLacq1(
+        preprocessor.FOODS,
+        args.datadir,
+        sounddic_wave if args.use_real_time_asr else sounddic_text,
+        asr,
+        question_paths if args.use_spoken_question else None
+    )
     
     # RL learning model creation
     policy_kwargs = dict(
+        features_extractor_class=CustomFeaturesExtractor,
         features_extractor_kwargs=dict(
             cluster_centers=cluster_centers,
             load_state_dict_path=args.load_state_dict_path,

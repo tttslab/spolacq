@@ -142,7 +142,10 @@ class CustomQNetwork(QNetwork):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.q_net = FocusingActionFilterQNetwork(self.features_dim)
+        if isinstance(self.features_extractor, CustomFeaturesExtractor):
+            self.q_net = FocusingActionFilterQNetwork(self.features_dim)
+        else:
+            raise ValueError(f"You must use CustomFeaturesExtractor as features_extractor_class.")
     
     def _predict(self, observation: torch.Tensor, deterministic: bool = True) -> torch.Tensor:
         q_values = self.forward(observation)
@@ -163,7 +166,7 @@ class CustomDQNPolicy(DQNPolicy):
         lr_schedule: Schedule,
         net_arch: Optional[List[int]] = None,
         activation_fn: Type[nn.Module] = nn.ReLU,
-        features_extractor_class: Type[BaseFeaturesExtractor] = CustomFeaturesExtractor,
+        features_extractor_class: CustomFeaturesExtractor = CustomFeaturesExtractor,
         features_extractor_kwargs: Optional[Dict[str, Any]] = None,
         normalize_images: bool = True,
         optimizer_class: Type[torch.optim.Optimizer] = torch.optim.Adam,
@@ -249,13 +252,14 @@ class CustomDQN(DQN):
             self.policy.optimizer.step()
             
             # Update action filter
-            for action, reward in zip(replay_data.actions, replay_data.rewards):
-                i, j = divmod(action.item(), self.policy.q_net.features_extractor.num_per_group)
-                if reward.item() > 0:
-                    self.policy.q_net.features_extractor.action_filter[i,:] *= self.policy.q_net.features_extractor.purify_rate
-                    self.policy.q_net.features_extractor.action_filter[i,j] = 1
-                else:
-                    self.policy.q_net.features_extractor.action_filter[i,j] *= self.policy.q_net.features_extractor.purify_rate
+            if isinstance(self.policy.q_net.features_extractor, CustomFeaturesExtractor):
+                for action, reward in zip(replay_data.actions, replay_data.rewards):
+                    i, j = divmod(action.item(), self.policy.q_net.features_extractor.num_per_group)
+                    if reward.item() > 0:
+                        self.policy.q_net.features_extractor.action_filter[i,:] *= self.policy.q_net.features_extractor.purify_rate
+                        self.policy.q_net.features_extractor.action_filter[i,j] = 1
+                    else:
+                        self.policy.q_net.features_extractor.action_filter[i,j] *= self.policy.q_net.features_extractor.purify_rate
 
         # Increase update counter
         self._n_updates += gradient_steps

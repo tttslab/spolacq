@@ -16,6 +16,7 @@ total_timesteps: 200000 # training step of RL
 # Save trained DQN
 save: True
 
-obj_name_list: ['apple', 'banana', 'carrot', 'cherry', 'cucumber', 'green_pepper', 'hyacinth_bean', 'lemon', 'onion', 'orange', 'potato', 'sliced_bread', 'small_cabbage', 'strawberry', 'sweet_potato', 'tomato']
-# if combined_sounds include "NO"
-include_no: False
+obj_name_list: ["cherry", "green_pepper", "lemon", "orange", "potato", "strawberry", "sweet_potato", "tomato"]
+# obj_name_list: ["apple", "banana", "carrot", "cherry", "cucumber", "green_pepper", "hyacinth_bean", "lemon", "onion", "orange", "potato", "sliced_bread", "small_cabbage", "strawberry", "sweet_potato", "tomato"]
+include_no: False # Whether to add "NO" to the combined_sound or not.
+use_spoken_question: True

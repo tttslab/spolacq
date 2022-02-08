@@ -10,6 +10,7 @@ This repository contains codes for the papers:
 - [Spoken Language Acquisition Based on Reinforcement Learning and Word Unit Segmentation](https://ieeexplore.ieee.org/abstract/document/9053326)
 - [Sound-Image Grounding Based Focusing Mechanism for Efficient Automatic Spoken Language Acquisition](http://www.interspeech2020.org/uploadfile/pdf/Thu-2-4-4.pdf)
 - [Pronunciation adaptive self speaking agent using WaveGrad](https://aaai-sas-2022.github.io/)
+- [Self-Supervised Spoken Question Understanding and Speaking With Automatic Vocabulary Learning](https://ieeexplore.ieee.org/abstract/document/9660413)
 
 
 Unsupervised syllable boundary detection

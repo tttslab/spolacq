@@ -3,12 +3,9 @@ import argparse
 import glob
 import os
 import pickle
-import shutil
 from pathlib import Path
 
 import librosa
-import numpy as np
-import pydub
 import resampy
 from gtts import gTTS
 from pydub import AudioSegment
@@ -124,3 +121,9 @@ with warnings.catch_warnings():
     
     file_name = f'{parent_path}/no.mp3'
     gtts_wrapper('no', file_name)
+
+    file_name = f'{parent_path}/which_do_you_want.mp3'
+    gtts_wrapper('which do you want', file_name)
+
+    file_name = f'{parent_path}/which_do_not_you_want.mp3'
+    gtts_wrapper('which do not you want', file_name)

@@ -1,5 +1,4 @@
 from glob import glob
-import json
 import os
 import pickle
 import random
@@ -36,6 +35,18 @@ class Food:
         self.RGB = RGB
 
 
+class Question:
+    """
+    Definition of spoken question.
+    :param spectrogram: spectrogram of spoken question.
+    :param question_type: 0: Which do you want?, 1: Which do not you want?
+    """
+    
+    def __init__(self, spectrogram: np.ndarray, question_type: int):
+        self.spectrogram = spectrogram
+        self.question_type = question_type
+
+
 class DialogWorld:
     """
     Dialogue partner for the language learning agent,
@@ -55,6 +66,8 @@ class DialogWorld:
     :param asr: If args.use_real_time_asr==True, you can use any ASR of
         Callable[[np.ndarray], str]; otherwise, it is the identity function,
         i.e., lambda x: x.
+    :param question_paths: Paths of spoken questions from a dialogue partner,
+        e.g., "Which do you want?".
     """
     
     def __init__(
@@ -64,12 +77,15 @@ class DialogWorld:
         FOODS: tuple,
         datadir: str,
         asr: Callable[[Union[np.ndarray, str]], str],
+        question_paths: Optional[List[Tuple[str, int]]] = None,
     ):
         print("Initializaing DialogWorld")
         self.MAX_STEP = MAX_STEP
         self.hasNO = hasNO
         self.FOODS = FOODS
         self.make_food_storage(datadir)
+        if question_paths is not None:
+            self.make_question_storage(question_paths)
         self.asr = asr
         print("Have prepared ASR")
         self.reset()
@@ -87,10 +103,42 @@ class DialogWorld:
                 RGB = np.mean(image.astype(float)/255, axis=(0,1))
                 self.food_storage.append(Food(f, image, RGB))
     
+    def make_question_storage(
+        self,
+        question_paths: List[Tuple[str, int]],
+        win_len_sec: float = 0.025,
+        hop_sec: float = 0.010,
+        log_pad: float = 0.010,
+        sr: int = 16000,
+    ) -> None:
+        question_storage = list()
+        self.question_storage = list()
+        max_spec_len = 0
+
+        # wav -> spectrogram
+        for path, question_type in question_paths:
+            question, _ = librosa.load(path, sr=sr)
+            question = librosa.stft(
+                question,
+                n_fft=int(win_len_sec*sr),
+                hop_length=int(hop_sec*sr),
+            )
+            question = np.log(np.abs(question)+log_pad).T
+            question_storage.append((question, question_type))
+            max_spec_len = max(max_spec_len, len(question))
+
+        # Padding
+        for spec, question_type in question_storage:
+            pad = spec[-1:].repeat(max_spec_len-len(spec), axis=0)
+            spec = np.concatenate((spec, pad), axis=0)
+            self.question_storage.append(Question(spec, question_type))
+
     def reset(self) -> None:
         self.num = self.MAX_STEP
         self.leftfood = random.choice(self.food_storage)
         self.rightfood = random.choice(self.food_storage)
+        if hasattr(self, "question_storage"):
+            self.question = random.choice(self.question_storage)
         self.done = False
     
     def step(self, action: Union[np.ndarray, str]) -> Tuple[Tuple[bool, int, str], bool]:
@@ -110,10 +158,15 @@ class DialogWorld:
             self.done = True
         self.leftfood = random.choice(self.food_storage)
         self.rightfood = random.choice(self.food_storage)
+        if hasattr(self, "question_storage"):
+            self.question = random.choice(self.question_storage)
         return (dlg_success, foodID, text), self.done
     
     def observe(self) -> dict:
-        return dict(num=self.num, leftfood=self.leftfood, rightfood=self.rightfood)
+        if hasattr(self, "question_storage"):
+            return dict(num=self.num, leftfood=self.leftfood, rightfood=self.rightfood, question=self.question)
+        else:
+            return dict(num=self.num, leftfood=self.leftfood, rightfood=self.rightfood)
 
 
 class SpoLacq(gym.Env):
@@ -133,6 +186,8 @@ class SpoLacq(gym.Env):
     :param asr: If args.use_real_time_asr==True, you can use any ASR of
         Callable[[np.ndarray], str]; otherwise, it is the identity function,
         i.e., lambda x: x.
+    :param question_paths: Paths of spoken questions from a dialogue partner,
+        e.g., "Which do you want?".
     """
     
     MAX_RGB = 1 # normalized image
@@ -142,21 +197,31 @@ class SpoLacq(gym.Env):
         FOODS: tuple,
         datadir: str,
         asr: Callable[[Union[np.ndarray, str]], str],
+        question_paths: Optional[List[Tuple[str, int]]] = None,
     ):
         super().__init__()
-        self.dlgworld = DialogWorld(1, False, FOODS, datadir, asr)
-        self.observation_space = gym.spaces.Dict(
-            dict(
-                state=gym.spaces.Box(low=0, high=self.MAX_RGB, shape=(3,)),
-                leftfoodRGB=gym.spaces.Box(low=0, high=self.MAX_RGB, shape=(3,)),
-                rightfoodRGB=gym.spaces.Box(low=0, high=self.MAX_RGB, shape=(3,)),
-                leftimage=gym.spaces.Box(low=0, high=255, shape=(224, 224, 3), dtype=np.uint8),
-                rightimage=gym.spaces.Box(low=0, high=255, shape=(224, 224, 3), dtype=np.uint8),
-                step=gym.spaces.Discrete(self.dlgworld.MAX_STEP+1),
-                leftfoodID=gym.spaces.Discrete(len(FOODS)),
-                rightfoodID=gym.spaces.Discrete(len(FOODS)),
-            )
+        self.dlgworld = DialogWorld(1, False, FOODS, datadir, asr, question_paths)
+        space_dict = dict(
+            state=gym.spaces.Box(low=0, high=self.MAX_RGB, shape=(3,)),
+            leftfoodRGB=gym.spaces.Box(low=0, high=self.MAX_RGB, shape=(3,)),
+            rightfoodRGB=gym.spaces.Box(low=0, high=self.MAX_RGB, shape=(3,)),
+            leftimage=gym.spaces.Box(low=0, high=255, shape=(224, 224, 3), dtype=np.uint8),
+            rightimage=gym.spaces.Box(low=0, high=255, shape=(224, 224, 3), dtype=np.uint8),
+            step=gym.spaces.Discrete(self.dlgworld.MAX_STEP+1),
+            leftfoodID=gym.spaces.Discrete(len(FOODS)),
+            rightfoodID=gym.spaces.Discrete(len(FOODS)),
         )
+        if hasattr(self.dlgworld, "question_storage"):
+            space_dict.update(
+                sound=gym.spaces.Box(
+                    low=-float("inf"),
+                    high=float("inf"),
+                    shape=self.dlgworld.question_storage[0].spectrogram.shape,
+                    dtype=float,
+                ),
+                question_type=gym.spaces.Discrete(2),
+            )
+        self.observation_space = gym.spaces.Dict(space_dict)
         self.FOODS = FOODS
         self.reset()
     
@@ -176,7 +241,7 @@ class SpoLacq(gym.Env):
     def observe(self) -> dict:
         insideobs = np.array([self.preferredR, self.preferredG, self.preferredB])
         outsideobs = self.dlgworld.observe()
-        return dict(
+        obs = dict(
             state=insideobs,
             leftfoodRGB=outsideobs["leftfood"].RGB,
             rightfoodRGB=outsideobs["rightfood"].RGB,
@@ -186,6 +251,12 @@ class SpoLacq(gym.Env):
             leftfoodID=self.FOODS.index(outsideobs["leftfood"].name),
             rightfoodID=self.FOODS.index(outsideobs["rightfood"].name),
         )
+        if "question" in outsideobs:
+            obs.update(
+                sound=outsideobs["question"].spectrogram,
+                question_type=outsideobs["question"].question_type,
+            )
+        return obs
     
     def update_internal_state(self, feedback: Tuple[bool, int, str]) -> None:
         # Initialize the internal state of spolacq agent
@@ -198,12 +269,21 @@ class SpoLacq(gym.Env):
             return 0
         leftfood_distance = np.linalg.norm(old_state["state"] - old_state["leftfoodRGB"])
         rightfood_distance = np.linalg.norm(old_state["state"] - old_state["rightfoodRGB"])
-        if leftfood_distance < rightfood_distance and feedback[1] == old_state["leftfoodID"]:
-            return 1 # Agent want leftfood and agent's utterance is leftfood's name
-        elif leftfood_distance >= rightfood_distance and feedback[1] == old_state["rightfoodID"]:
-            return 1 # Agent want rightfood and agent's utterance is rightfood's name
-        else:
-            return 0
+
+        if old_state.get("question_type", 0) == 0: # Which do you want?
+            if leftfood_distance < rightfood_distance and feedback[1] == old_state["leftfoodID"]:
+                return 1 # Agent want leftfood and agent's utterance is leftfood's name
+            elif leftfood_distance >= rightfood_distance and feedback[1] == old_state["rightfoodID"]:
+                return 1 # Agent want rightfood and agent's utterance is rightfood's name
+            else:
+                return 0
+        else: # Which do not you want?
+            if leftfood_distance < rightfood_distance and feedback[1] == old_state["rightfoodID"]:
+                return 1 # Agent want leftfood and agent's utterance is rightfood's name
+            elif leftfood_distance >= rightfood_distance and feedback[1] == old_state["leftfoodID"]:
+                return 1 # Agent want rightfood and agent's utterance is leftfood's name
+            else:
+                return 0
     
     def render(self, mode: str = "console", close=False) -> None:
         state = self.observe()
@@ -228,11 +308,15 @@ class SpoLacq(gym.Env):
 
 class SpoLacq1(SpoLacq):
     """
-    RL environment described in the paper
+    RL environment described in the papers:
     
-    M. Zhang, T. Tanaka, W. Hou, S. Gao, T. Shinozaki,
+    M. Zhang, T. Tanaka, W. Hou, S. Gao, and T. Shinozaki,
     "Sound-Image Grounding Based Focusing Mechanism for Efficient Automatic Spoken Language Acquisition,"
     in Proc. Interspeech, 2020.
+    
+    K. Toyoda, Y. Kimura, M. Zhang, K. Hino, K. Mori, and T. Shinozaki,
+    "Self-Supervised Spoken Question Understanding and Speaking With Automatic Vocabulary Learning,"
+    in Proc. O-COCOSDA, 2021.
     
     :param FOODS: Tuple of food names. The type of food names must match
         the type of the return value of ASR. For example, Wav2Vec2 returns
@@ -243,6 +327,8 @@ class SpoLacq1(SpoLacq):
     :param asr: If args.use_real_time_asr==True, you can use any ASR of
         Callable[[np.ndarray], str]; otherwise, it is the identity function,
         i.e., lambda x: x.
+    :param question_paths: Paths of spoken questions from a dialogue partner,
+        e.g., "Which do you want?".
     """
     
     def __init__(
@@ -251,8 +337,9 @@ class SpoLacq1(SpoLacq):
         datadir: str,
         sounddic: Union[List[np.ndarray], List[str]],
         asr: Callable[[Union[np.ndarray, str]], str],
+        question_paths: Optional[List[Tuple[str, int]]] = None,
     ):
-        super().__init__(FOODS, datadir, asr)
+        super().__init__(FOODS, datadir, asr, question_paths)
         self.action_space = gym.spaces.Discrete(len(sounddic))
         self.sounddic = sounddic # convert categorical ID to wave utterance
         self.succeeded_log = list()
@@ -446,8 +533,8 @@ class RLPreprocessor:
         else:
             return lambda x: x
     
-    def focus(self, num_clusters: int, num_per_group: int):
-        kmeans = KMeans(n_clusters=num_clusters, random_state=2).fit(self.image_features)
+    def focus(self, num_clusters: int, num_per_group: int, random_state: int = 2):
+        kmeans = KMeans(n_clusters=num_clusters, random_state=random_state).fit(self.image_features)
         similarity = -cdist(kmeans.cluster_centers_, self.segment_features)
         focused_segment_ids = similarity.argsort(axis=1)[:, -num_per_group:].flatten()
         
@@ -558,6 +645,41 @@ def plot_reward(tb_paths: List[str], label: str) -> None:
     plt.plot(x, y, label=label)
     plt.xlabel("Episode")
     plt.ylabel("Reward (moving average of 1000 episodes)")
+    plt.yticks(ticks=yticks, labels=[str(i) for i in yticks])
+    plt.grid(visible=True, which="both")
+    plt.legend()
+
+
+def plot_vwrr(qa_logs: List[str], label: str, obj_name_list: List[str]):
+    """
+    Plot Valid Word Recognition Rate (VWRR). VWRR is the rate that
+    the recognition result of the agent's utterance is one of the foods.
+    
+    :param qa_logs: list of qa_log, i.e., ["*/nn/*/qa_log.txt", ...]
+    :param label: legend of plot
+    :param obj_name_list: list of FOODS
+    """
+
+    FOODS = tuple(f.upper().replace("_", " ") for f in obj_name_list)
+    
+    vw = list()
+    for qa_log in qa_logs:
+        with open(qa_log) as f:
+            vw += [int(r.strip().split("|")[3] in FOODS) for r in f]
+    
+    x = list()
+    y = list()
+
+    for i in range(len(vw)//1000):
+        moving_average = np.mean(vw[1000*i:1000*(i+1)])
+        x.append(1000*(i+1))
+        y.append(moving_average)
+    
+    yticks = np.array(range(0, 11, 1))/10
+    
+    plt.plot(x, y, label=label)
+    plt.xlabel("Episode")
+    plt.ylabel("VWRR (moving average of 1000 episodes)")
     plt.yticks(ticks=yticks, labels=[str(i) for i in yticks])
     plt.grid(visible=True, which="both")
     plt.legend()
