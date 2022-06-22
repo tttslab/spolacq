@@ -78,6 +78,7 @@ class DialogWorld:
         datadir: str,
         asr: Callable[[Union[np.ndarray, str]], str],
         question_paths: Optional[List[Tuple[str, int]]] = None,
+        spec_len: Optional[int] = None,
     ):
         print("Initializaing DialogWorld")
         self.MAX_STEP = MAX_STEP
@@ -85,7 +86,7 @@ class DialogWorld:
         self.FOODS = FOODS
         self.make_food_storage(datadir)
         if question_paths is not None:
-            self.make_question_storage(question_paths)
+            self.make_question_storage(question_paths, spec_len=spec_len)
         self.asr = asr
         print("Have prepared ASR")
         self.reset()
@@ -110,6 +111,7 @@ class DialogWorld:
         hop_sec: float = 0.010,
         log_pad: float = 0.010,
         sr: int = 16000,
+        spec_len: Optional[int] = None,
     ) -> None:
         question_storage = list()
         self.question_storage = list()
@@ -127,10 +129,16 @@ class DialogWorld:
             question_storage.append((question, question_type))
             max_spec_len = max(max_spec_len, len(question))
 
+        if spec_len is None:
+            spec_len = max_spec_len
+        
         # Padding
         for spec, question_type in question_storage:
-            pad = spec[-1:].repeat(max_spec_len-len(spec), axis=0)
-            spec = np.concatenate((spec, pad), axis=0)
+            if spec_len > len(spec):
+                pad = spec[-1:].repeat(spec_len-len(spec), axis=0)
+                spec = np.concatenate((spec, pad), axis=0)
+            else:
+                spec = spec[:spec_len]
             self.question_storage.append(Question(spec, question_type))
 
     def reset(self) -> None:
@@ -167,6 +175,13 @@ class DialogWorld:
             return dict(num=self.num, leftfood=self.leftfood, rightfood=self.rightfood, question=self.question)
         else:
             return dict(num=self.num, leftfood=self.leftfood, rightfood=self.rightfood)
+    
+    def render(self, mode: str = "console", close=False) -> None:
+        state = self.observe()
+        if "question" not in state or state["question"].question_type == 0:
+            print("Which do you want?")
+        else:
+            print("Which do not you want?")
 
 
 class SpoLacq(gym.Env):
@@ -198,9 +213,10 @@ class SpoLacq(gym.Env):
         datadir: str,
         asr: Callable[[Union[np.ndarray, str]], str],
         question_paths: Optional[List[Tuple[str, int]]] = None,
+        spec_len: Optional[int] = None,
     ):
         super().__init__()
-        self.dlgworld = DialogWorld(1, False, FOODS, datadir, asr, question_paths)
+        self.dlgworld = DialogWorld(1, False, FOODS, datadir, asr, question_paths, spec_len)
         space_dict = dict(
             state=gym.spaces.Box(low=0, high=self.MAX_RGB, shape=(3,)),
             leftfoodRGB=gym.spaces.Box(low=0, high=self.MAX_RGB, shape=(3,)),
@@ -286,13 +302,22 @@ class SpoLacq(gym.Env):
                 return 0
     
     def render(self, mode: str = "console", close=False) -> None:
+        self.dlgworld.render(mode=mode, close=close)
         state = self.observe()
         leftfood_distance = np.linalg.norm(state["state"] - state["leftfoodRGB"])
         rightfood_distance = np.linalg.norm(state["state"] - state["rightfoodRGB"])
-        if leftfood_distance < rightfood_distance:
-            print(f"The left {self.FOODS[state['leftfoodID']]} is preferred.")
+        
+        if state.get("question_type", 0) == 0:  # which do you want?
+            if leftfood_distance < rightfood_distance:
+                print(f"The left {self.FOODS[state['leftfoodID']]} is preferred.")
+            else:
+                print(f"The right {self.FOODS[state['rightfoodID']]} is preferred.")
         else:
-            print(f"The right {self.FOODS[state['rightfoodID']]} is preferred.")
+            if leftfood_distance < rightfood_distance:
+                print(f"The right {self.FOODS[state['rightfoodID']]} is NOT preferred.")
+            else:
+                print(f"The left {self.FOODS[state['leftfoodID']]} is NOT preferred.")
+        
         if mode == "human":
             plt.subplot(1, 2, 1)
             plt.imshow(state["leftimage"])
@@ -338,8 +363,9 @@ class SpoLacq1(SpoLacq):
         sounddic: Union[List[np.ndarray], List[str]],
         asr: Callable[[Union[np.ndarray, str]], str],
         question_paths: Optional[List[Tuple[str, int]]] = None,
+        spec_len: Optional[int] = None,
     ):
-        super().__init__(FOODS, datadir, asr, question_paths)
+        super().__init__(FOODS, datadir, asr, question_paths, spec_len)
         self.action_space = gym.spaces.Discrete(len(sounddic))
         self.sounddic = sounddic # convert categorical ID to wave utterance
         self.succeeded_log = list()

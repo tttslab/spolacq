@@ -22,6 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 """
 
+import multiprocessing
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import gym
@@ -29,12 +30,135 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.data import DataLoader
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.type_aliases import Schedule, GymEnv
 from stable_baselines3.dqn.dqn import DQN
 from stable_baselines3.dqn.policies import QNetwork, DQNPolicy
 
 from model import SimpleImageCorrNet
+from loader import A_Dataset
+
+
+class RefinedFeaturesExtractor(BaseFeaturesExtractor):
+    """
+    Custom features extractors from an observation.
+    This consists of three features extractors (state_net, corr_net, focus_net).
+    The "sound" can be a question audio from an environment.
+    
+    :param observation_space: Observation space of an agent.
+    :param segments_path: Path of a text file describing paths of spectrograms.
+    :param load_state_dict_path: Path of the model pretrained by correspondence learning.
+    :param action_mask: If specified, only those actions can be selected.
+    :param use_focusing: Whether to use refined focusing mechanism or not.
+    """
+    
+    def __init__(
+        self,
+        observation_space: gym.spaces.Dict,
+        segments_path: str,
+        load_state_dict_path: str,
+        action_mask: Optional[List[int]] = None,
+        use_focusing: bool = True,
+    ):
+        num_class = torch.load(load_state_dict_path)["model_state_dict"]["audio_net.fc.bias"].size(dim=0)
+        super().__init__(
+            observation_space,
+            num_class*4 if "sound" in observation_space.spaces else num_class*3,
+        )
+        
+        # Front-ends
+        self.state_net = nn.Linear(observation_space.spaces["state"].shape[0], num_class)
+        self.corr_net = SimpleImageCorrNet(num_class=num_class)
+        self.corr_net.load_state_dict(torch.load(load_state_dict_path)["model_state_dict"])
+        self.focus_net = SimpleImageCorrNet(num_class=num_class)
+        self.focus_net.load_state_dict(torch.load(load_state_dict_path)["model_state_dict"])
+        
+        with open(segments_path) as f:
+            # paths of spectrogram of audio segment (*.pkl)
+            self.spec_paths = [p.strip() for p in f]
+
+        self.use_focusing = use_focusing
+        self.initialize_key()
+        if action_mask: self.set_action_mask(action_mask)
+    
+    def initialize_key(self, num_workers: int = multiprocessing.cpu_count(), device=torch.device("cpu")) -> None:
+        loader = DataLoader(
+            A_Dataset(self.spec_paths, None, None),
+            batch_size=1,
+            shuffle=False,
+            num_workers=num_workers,
+            pin_memory=True,
+        )
+
+        self.focus_net.eval()
+        with torch.no_grad():
+            key = [self.focus_net._sound_extract(segment.to(device)) for segment in loader]
+        self.key = nn.parameter.Parameter(torch.cat(key, dim=0), requires_grad=False)
+    
+    def set_action_mask(self, action_mask: List[int]) -> None:
+        self.action_mask = nn.parameter.Parameter(
+            torch.full(
+                (self.key.size(dim=0),),
+                -float("inf"),
+                device=self.key.device,
+            ),
+            requires_grad=False,
+        )
+        self.action_mask[action_mask] = 0
+    
+    def forward(self, observation: Dict[str, torch.Tensor]) -> tuple:
+        state = torch.tanh(self.state_net(observation["state"]))
+        leftimage = torch.tanh(self.corr_net._visual_extract(observation["leftimage"]))
+        rightimage = torch.tanh(self.corr_net._visual_extract(observation["rightimage"]))
+        if "sound" in observation:
+            sound = torch.tanh(self.corr_net._sound_extract(observation["sound"]))
+        else:
+            sound = torch.empty((state.size(dim=0), 0), device=state.device)
+        
+        if self.use_focusing:
+            leftimage_weight = self.focus(observation["leftimage"])
+            rightimage_weight = self.focus(observation["rightimage"])
+            return torch.cat((state, leftimage, rightimage, sound), dim=1), leftimage_weight, rightimage_weight
+        else:
+            return torch.cat((state, leftimage, rightimage, sound), dim=1),
+    
+    def focus(self, image: torch.Tensor) -> torch.Tensor:
+        self.focus_net.eval()
+        with torch.no_grad():
+            query = self.focus_net._visual_extract(image)
+            weight = -torch.cdist(query, self.key)
+            weight = F.softmax(weight, dim=1)
+            weight = weight / torch.max(weight, dim=1, keepdim=True)[0] # Broadcast
+        return weight
+
+
+class RefinedQNetwork(nn.Module):
+    """
+    Refined Q-network. This does not include features extractors.
+    """
+    
+    def __init__(self, features_dim: int, action_dim: int):
+        super().__init__()
+        self.fc1 = nn.Linear(features_dim, features_dim//2)
+        self.fc2 = nn.Linear(features_dim//2, 3)
+        self.fc3 = nn.Linear(features_dim, features_dim//2)
+        self.fc4 = nn.Linear(features_dim//2, action_dim)
+    
+    def forward(self, x: tuple) -> torch.Tensor:
+        if len(x) == 3:
+            features, leftimage_weight, rightimage_weight = x
+            alpha = F.relu(self.fc1(features))
+            alpha = F.softmax(self.fc2(alpha), dim=1)
+            weight = F.relu(self.fc3(features))
+            weight = self.fc4(weight)
+            return alpha[:,0][:,None]*leftimage_weight + alpha[:,1][:,None]*rightimage_weight + alpha[:,2][:,None]*weight
+        else:
+            features = x[0]
+            features = F.relu(self.fc3(features))
+            q_values = F.softmax(self.fc4(features), dim=1)
+            return q_values
+
 
 class CustomFeaturesExtractor(BaseFeaturesExtractor):
     """
@@ -142,10 +266,12 @@ class CustomQNetwork(QNetwork):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if isinstance(self.features_extractor, CustomFeaturesExtractor):
+        if isinstance(self.features_extractor, RefinedFeaturesExtractor):
+            self.q_net = RefinedQNetwork(self.features_dim, self.action_space.n)
+        elif isinstance(self.features_extractor, CustomFeaturesExtractor):
             self.q_net = FocusingActionFilterQNetwork(self.features_dim)
         else:
-            raise ValueError(f"You must use CustomFeaturesExtractor as features_extractor_class.")
+            raise ValueError(f"You must use RefinedFeaturesExtractor or CustomFeaturesExtractor as features_extractor_class.")
     
     def _predict(self, observation: torch.Tensor, deterministic: bool = True) -> torch.Tensor:
         q_values = self.forward(observation)
@@ -166,7 +292,7 @@ class CustomDQNPolicy(DQNPolicy):
         lr_schedule: Schedule,
         net_arch: Optional[List[int]] = None,
         activation_fn: Type[nn.Module] = nn.ReLU,
-        features_extractor_class: CustomFeaturesExtractor = CustomFeaturesExtractor,
+        features_extractor_class: Union[Type[RefinedFeaturesExtractor], Type[CustomFeaturesExtractor]] = RefinedFeaturesExtractor,
         features_extractor_kwargs: Optional[Dict[str, Any]] = None,
         normalize_images: bool = True,
         optimizer_class: Type[torch.optim.Optimizer] = torch.optim.Adam,
@@ -210,7 +336,7 @@ class CustomDQN(DQN):
     model.learn(total_timesteps=args.total_timesteps, tb_log_name=tb_log_name, reset_num_timesteps=False)
     """
     
-    def __init__(self, policy: CustomDQNPolicy, env: Union[GymEnv, str], **kwargs):
+    def __init__(self, policy: Type[CustomDQNPolicy], env: Union[GymEnv, str], **kwargs):
         super().__init__(policy, env, **kwargs)
     
     def train(self, gradient_steps: int, batch_size: int = 100) -> None:

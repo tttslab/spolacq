@@ -3,7 +3,7 @@ import pickle
 
 import yaml
 
-from sb3_api import CustomDQNPolicy, CustomDQN, CustomFeaturesExtractor
+from sb3_api import CustomDQNPolicy, CustomDQN, RefinedFeaturesExtractor, CustomFeaturesExtractor
 from spolacq import SpoLacq1, RLPreprocessor, test
 
 
@@ -40,8 +40,13 @@ if __name__ == "__main__":
         args.asr_model_name,
         args.use_real_time_asr,
     )
-    sounddic_wave, sounddic_text, sounddic_path, cluster_centers = preprocessor.focus(
-        args.num_clusters, args.num_per_group)
+    if args.use_refined_focusing:
+        sounddic_wave = preprocessor.segment_wave
+        sounddic_text = preprocessor.segment_text
+        preprocessor.check(sounddic_text)
+    else:
+        sounddic_wave, sounddic_text, sounddic_path, cluster_centers = preprocessor.focus(
+            args.num_clusters, args.num_per_group)
     
     # Spoken questions (simplest case). You may add noise to wav files.
     question_paths = [
@@ -55,19 +60,28 @@ if __name__ == "__main__":
         args.datadir,
         sounddic_wave if args.use_real_time_asr else sounddic_text,
         asr,
-        question_paths if args.use_spoken_question else None
+        question_paths if args.use_spoken_question else None,
     )
     
     # RL learning model creation
-    policy_kwargs = dict(
-        features_extractor_class=CustomFeaturesExtractor,
-        features_extractor_kwargs=dict(
-            cluster_centers=cluster_centers,
-            load_state_dict_path=args.load_state_dict_path,
-            num_per_group=args.num_per_group,
-            purify_rate=args.purify_rate,
+    if args.use_refined_focusing:
+        policy_kwargs = dict(
+            features_extractor_class=RefinedFeaturesExtractor,
+            features_extractor_kwargs=dict(
+                segments_path=args.segment_pkl,
+                load_state_dict_path=args.load_state_dict_path,
+            )
         )
-    )
+    else:
+        policy_kwargs = dict(
+            features_extractor_class=CustomFeaturesExtractor,
+            features_extractor_kwargs=dict(
+                cluster_centers=cluster_centers,
+                load_state_dict_path=args.load_state_dict_path,
+                num_per_group=args.num_per_group,
+                purify_rate=args.purify_rate,
+            )
+        )
     replay_buffer_kwargs = dict(handle_timeout_termination=False)
     
     model = CustomDQN(

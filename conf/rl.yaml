@@ -12,6 +12,7 @@ buffer_size: 1000
 learning_starts: 50
 target_update_interval: 100
 total_timesteps: 200000 # training step of RL
+use_refined_focusing: True
 
 # Save trained DQN
 save: True

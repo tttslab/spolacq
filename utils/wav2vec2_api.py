@@ -28,10 +28,11 @@ from transformers import Wav2Vec2Processor, Wav2Vec2ForCTC
 
 
 class ASR:
-    def __init__(self, modelname_or_path: str):
+    def __init__(self, modelname_or_path: str, lr=1e-6):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.processor = Wav2Vec2Processor.from_pretrained(modelname_or_path)
         self.model = Wav2Vec2ForCTC.from_pretrained(modelname_or_path).to(self.device)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
     
     def __call__(self, audio_input: np.ndarray) -> str:
         # pad input values and return pt tensor
@@ -50,3 +51,17 @@ class ASR:
     def save(self, path: str) -> None:
         self.processor.save_pretrained(path)
         self.model.save_pretrained(path)
+    
+    def train(self, audio_input: np.ndarray, target_transcription: str) -> None:
+        # pad input values and return pt tensor
+        input_values = self.processor(audio_input, sampling_rate=16000, return_tensors="pt").input_values
+
+        # encode labels
+        with self.processor.as_target_processor():
+            labels = self.processor(target_transcription, return_tensors="pt").input_ids
+
+        # compute loss by passing labels
+        loss = self.model(input_values.to(self.device), labels=labels).loss
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
