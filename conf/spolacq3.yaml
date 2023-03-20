@@ -1,0 +1,44 @@
+I2U:
+  word_map: "data/I2U/processed/WORDMAP_food_4_cap_per_img_1_min_word_freq.json"
+  data_folder: "data/I2U/processed"
+  data_name: "food_4_cap_per_img_1_min_word_freq"
+  d_embed: 8
+  batch_size: 96
+  num_workers: 10
+  lr: 0.0001
+  epoch: 100
+  beam_size: 50
+  model_path: "models/I2U/i2u_with_sentence_embedding.pt"
+
+U2S:
+  tacotron2: "models/U2S/outdir/checkpoint_40000"
+  filelists_train: "data/U2S/food_audio_text_train_filelist.txt"
+  filelists_val: "data/U2S/food_audio_text_val_filelist.txt"
+  filelists_test: "data/U2S/food_audio_text_test_filelist.txt"
+
+HiFi_GAN:
+  config: "models/hifi-gan/config.json"
+  checkpoint: "models/hifi-gan/g_02500000"
+
+ASR:
+  dir: "models/wav2vec2/"
+  model: "facebook/wav2vec2-large-960h"
+  lr: 0.000001
+  batch_size: 64
+  epoch: 20
+
+RL:
+  action_noise_sigma: 0.2
+  
+  learning_rate: 0.0001
+  buffer_size: 1000
+  learning_starts: 0
+  batch_size: 32
+  tensorboard_log: "models/RL"
+  clip_sentence_embedding: 2.5
+  
+  total_timesteps: 50000
+  
+  eval_freq: 200
+  n_eval_episodes: 1000
+  eval_log_path: "models/RL"

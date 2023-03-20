@@ -11,6 +11,8 @@ This repository contains codes for the papers:
 - [Sound-Image Grounding Based Focusing Mechanism for Efficient Automatic Spoken Language Acquisition](http://www.interspeech2020.org/uploadfile/pdf/Thu-2-4-4.pdf)
 - [Pronunciation adaptive self speaking agent using WaveGrad](https://aaai-sas-2022.github.io/)
 - [Self-Supervised Spoken Question Understanding and Speaking With Automatic Vocabulary Learning](https://ieeexplore.ieee.org/abstract/document/9660413)
+- [Automatic spoken language acquisition based on observation and dialogue](https://ieeexplore.ieee.org/abstract/document/9817627)
+- Continuous Action Space-based Spoken Language Acquisition Agent Using Residual Sentence Embedding and Transformer Decoder
 
 
 Unsupervised syllable boundary detection
@@ -81,6 +83,19 @@ conda env create -f=spolacq.yml
 conda activate spolacq
 cd egs
 sh runwavegrad.sh DATA_DIR_NAME(arbitrary)
+```
+Run main script for food task with continuous action space-based agent
+```
+cd egs
+sh setup.sh
+# download pretrained HiFi-GAN from https://drive.google.com/drive/folders/1YuOoV3lO2-Hhn1F2HJ2aQ4S0LC1JdKLd
+# and place them in the following paths
+# models
+# - hifi-gan
+#   - config.json
+#   - do_02500000
+#   - g_02500000
+sh run_spolacq3.sh
 ```
 If you are having [trouble with building box2d-py](https://github.com/openai/gym/issues/218), please try
 ```
