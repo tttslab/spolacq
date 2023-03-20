@@ -1,8 +1,13 @@
 # Download dataset
-if [ ! -d ../data ]
+if [ ! -d data ]
 then
-    cd ..
     wget https://tslab2.ip.titech.ac.jp/spolacq/data.zip
     unzip -q data.zip
-    cd -
+fi
+
+# Download pretrained speech-to-unit model
+if [ ! -d models/S2U/models ]
+then
+    wget https://tslab2.ip.titech.ac.jp/spolacq/models.zip
+    unzip -q models.zip
 fi

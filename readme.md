@@ -8,7 +8,7 @@ Overview
 Master branch contains codes for the paper:
 - Continuous Action Space-based Spoken Language Acquisition Agent Using Residual Sentence Embedding and Transformer Decoder
 
-[spolacq2.1 branch](/tttslab/spolacq/tree/spolacq2.1) contains codes for the paper:
+[spolacq2.1 branch](https://github.com/tttslab/spolacq/tree/spolacq2.1) contains codes for the papers:
 - [Spoken Language Acquisition Based on Reinforcement Learning and Word Unit Segmentation](https://ieeexplore.ieee.org/abstract/document/9053326)
 - [Sound-Image Grounding Based Focusing Mechanism for Efficient Automatic Spoken Language Acquisition](http://www.interspeech2020.org/uploadfile/pdf/Thu-2-4-4.pdf)
 - [Pronunciation adaptive self speaking agent using WaveGrad](https://aaai-sas-2022.github.io/)
@@ -22,10 +22,8 @@ About Author
 Usage
 -----
 ```
-pip install -r requirements.txt  # for python==3.7.12 setuptools==63.1.0 wheel==0.37.1
-
-cd egs
-sh setup.sh
+# setup for python 3.7.12 with CUDA 11.1
+pip install -r requirements.txt -f https://download.pytorch.org/whl/torch_stable.html
 
 # download pretrained HiFi-GAN from https://drive.google.com/drive/folders/1YuOoV3lO2-Hhn1F2HJ2aQ4S0LC1JdKLd
 # and place them in the following paths
@@ -35,9 +33,10 @@ sh setup.sh
 #     - do_02500000
 #     - g_02500000
 
-sh run_spolacq3.sh
+sh egs/setup.sh
+sh egs/run_spolacq3.sh
 ```
-If you are having [trouble with building box2d-py](https://github.com/openai/gym/issues/218), please try
+If you have [a trouble with building box2d-py](https://github.com/openai/gym/issues/218), please try the following command:
 ```
 sudo apt install xvfb xorg-dev libsdl2-dev swig cmake
 ```

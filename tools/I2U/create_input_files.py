@@ -3,15 +3,16 @@ import glob
 import math
 import os
 import pickle
-import subprocess
 import sys
 
+import ffmpeg
 from gtts import gTTS
 import librosa
 import numpy as np
 import pydub
 import torch
 from tqdm import tqdm
+import yaml
 
 from utils import create_input_files
 
@@ -58,12 +59,11 @@ def make_mp3_wav(food_name, text, i):
     os.makedirs(f"../../data/I2U/audio/{food_name}", exist_ok=True)
     if not os.path.isfile(f'../../data/I2U/audio/{food_name}/{food_name}_{i}.wav'):
         gTTS(text=text, lang='en').save(f'../../data/I2U/audio/tmp.mp3')
-        subprocess.call([
-            "/usr/bin/ffmpeg",
-            "-i", "../../data/I2U/audio/tmp.mp3",
-            "-loglevel", "quiet",
-            f"../../data/I2U/audio/{food_name}/{food_name}_{i}.wav",
-            ])
+        ffmpeg.run(
+            ffmpeg.output(ffmpeg.input("../../data/I2U/audio/tmp.mp3"),
+                          f"../../data/I2U/audio/{food_name}/{food_name}_{i}.wav"),
+            quiet=True,
+        )
 
 
 def make_noise_audio(food_name, i, j):
@@ -152,6 +152,8 @@ def make_captions(image_paths, mod: int, offset: int):
 
 
 if __name__ == "__main__":
+    with open("../../conf/spolacq3.yaml") as y:
+        config = yaml.safe_load(y)
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -175,25 +177,27 @@ if __name__ == "__main__":
         for caption in captions:
             word_freq.update(caption)
     
-    os.makedirs("../../data/I2U/processed", exist_ok=True)
-    with open("../../data/I2U/processed/train_image_paths.pickle", "wb") as f:
+    data_folder = os.path.join(os.path.dirname(__file__), "../..", config["I2U"]["data_folder"])
+    os.makedirs(data_folder, exist_ok=True)
+    
+    with open(os.path.join(data_folder, "train_image_paths.pickle"), "wb") as f:
         pickle.dump(train_image_paths, f)
-    with open("../../data/I2U/processed/train_image_captions.pickle", "wb") as f:
+    with open(os.path.join(data_folder, "train_image_captions.pickle"), "wb") as f:
         pickle.dump(train_image_captions, f)
-    with open("../../data/I2U/processed/val_image_paths.pickle", "wb") as f:
+    with open(os.path.join(data_folder, "val_image_paths.pickle"), "wb") as f:
         pickle.dump(val_image_paths, f)
-    with open("../../data/I2U/processed/val_image_captions.pickle", "wb") as f:
+    with open(os.path.join(data_folder, "val_image_captions.pickle"), "wb") as f:
         pickle.dump(val_image_captions, f)
-    with open("../../data/I2U/processed/test_image_paths.pickle", "wb") as f:
+    with open(os.path.join(data_folder, "test_image_paths.pickle"), "wb") as f:
         pickle.dump(test_image_paths, f)
-    with open("../../data/I2U/processed/test_image_captions.pickle", "wb") as f:
+    with open(os.path.join(data_folder, "test_image_captions.pickle"), "wb") as f:
         pickle.dump(test_image_captions, f)
-    with open("../../data/I2U/processed/word_freq.pickle", "wb") as f:
+    with open(os.path.join(data_folder, "word_freq.pickle"), "wb") as f:
         pickle.dump(word_freq, f)
 
     # Create input files (along with word map)
     create_input_files(dataset="food",
                        captions_per_image=4,
                        min_word_freq=1,
-                       output_folder="../../data/I2U/processed",
+                       output_folder=data_folder,
                        max_len=100)
