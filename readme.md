@@ -22,7 +22,7 @@ About Author
 Usage
 -----
 ```
-# setup for python 3.7.12 with CUDA 11.1
+# setup for python==3.7.12 setuptools==59.5.0 wheel==0.37.1 with CUDA 11.1
 pip install -r requirements.txt -f https://download.pytorch.org/whl/torch_stable.html
 
 # download pretrained HiFi-GAN from https://drive.google.com/drive/folders/1YuOoV3lO2-Hhn1F2HJ2aQ4S0LC1JdKLd
