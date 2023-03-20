@@ -10,10 +10,11 @@
 # ln -s ../../tools/S2U/exps/RDVQ_01000_01100/args.pkl
 
 # download pretrained speech-to-unit model
-# wget https://tslab2.ip.titech.ac.jp/path/to/pretrained_model
-# unzip -q hoge.zip
+cd ..
+wget https://tslab2.ip.titech.ac.jp/spolacq/models.zip
+unzip -q models.zip
 
-cd ../../tools/I2U
+cd tools/I2U
 python create_input_files.py
 python train_i2u.py
 

@@ -10,7 +10,7 @@ import torch
 import yaml
 
 from sb3_api import CustomDDPG, CustomTD3Policy
-from spolacq import SpoLacq3
+from gym_api import SpoLacq3
 from wav2vec2_api import ASR
 
 sys.path.append("../tools/I2U")
