@@ -29,8 +29,8 @@ import pickle
 
 import h5py
 import numpy as np
-from PIL import Image
 import torch
+from PIL import Image
 from tqdm import tqdm
 
 

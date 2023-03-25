@@ -2,31 +2,28 @@ from typing import Callable, List, Optional, Tuple, Union
 
 import gym
 import numpy as np
-from PIL import Image
-from stable_baselines3.common.base_class import BaseAlgorithm
 import torch
+from PIL import Image
 from torchvision import transforms
 
 
 class SpoLacq3(gym.Env):
     def __init__(
-            self,
-            image_list: List[str],
-            d_image_features: Optional[int] = None,
-            d_embed: Optional[int] = None,
-            action2text: Optional[Callable] = None,
-            sounddic: Optional[List[str]] = None,
-        ):
-        
+        self,
+        image_list: List[str],
+        d_image_features: Optional[int] = None,
+        d_embed: Optional[int] = None,
+        action2text: Optional[Callable] = None,
+        sounddic: Optional[List[str]] = None,
+    ):
         if d_image_features:
-            self.action_space = gym.spaces.Box(low=-np.inf, high=np.inf,
-                                               shape=(d_image_features+d_embed,))
+            self.action_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(d_image_features + d_embed,))
             self.action2text = action2text
-        
+
         elif sounddic:
             self.action_space = gym.spaces.Discrete(len(sounddic))
             self.action2text = lambda i: sounddic[i]
-        
+
         self.observation_space = gym.spaces.Dict(
             dict(
                 state=gym.spaces.Box(low=-np.inf, high=np.inf, shape=(3,), dtype=np.float64),
@@ -44,45 +41,45 @@ class SpoLacq3(gym.Env):
         self.make_food_storage(image_list)
 
         self.reset()
-    
+
     def make_food_storage(self, image_list: list):
         self.food_storage = list()
         for path in image_list:
             image = Image.open(path)
             image = np.asarray(image)
             self.food_storage.append(image)
-    
+
     def get_transformed_image(self, i: int):
         image = self.food_storage[i]
         image = image.transpose(2, 0, 1)
-        image = torch.FloatTensor(image / 255.)
+        image = torch.FloatTensor(image / 255.0)
         image = self.transform(image)
         image = image.numpy()
         return image
-    
+
     def reset(self):
         self.internal_state = np.random.randint(0, 256, size=3)
         self.leftimage_idx = np.random.randint(self.num_images)
         self.rightimage_idx = np.random.randint(self.num_images)
         obs = dict(
-            state=(self.internal_state/255.-self.mean) / self.std,
+            state=(self.internal_state / 255.0 - self.mean) / self.std,
             leftimage=self.get_transformed_image(self.leftimage_idx),
             rightimage=self.get_transformed_image(self.rightimage_idx),
         )
         return obs
-    
+
     def step(self, action):
         reward = self.reward(action)
         self.internal_state = np.random.randint(0, 256, size=3)
         self.leftimage_idx = np.random.randint(self.num_images)
         self.rightimage_idx = np.random.randint(self.num_images)
         obs = dict(
-            state=(self.internal_state/255.-self.mean) / self.std,
+            state=(self.internal_state / 255.0 - self.mean) / self.std,
             leftimage=self.get_transformed_image(self.leftimage_idx),
             rightimage=self.get_transformed_image(self.rightimage_idx),
         )
         return obs, reward, True, {}
-    
+
     def get_correct_transcript(self):
         leftimage_rgb = np.mean(self.food_storage[self.leftimage_idx], axis=(0, 1))
         rightimage_rgb = np.mean(self.food_storage[self.rightimage_idx], axis=(0, 1))
@@ -94,12 +91,12 @@ class SpoLacq3(gym.Env):
             correct_image_idx = self.leftimage_idx
         else:
             correct_image_idx = self.rightimage_idx
-        
+
         correct_image_path = self.image_list[correct_image_idx]
         correct_food = correct_image_path.split("/")[3].replace("_", " ").upper()
         preposition = "AN" if correct_food[0] in ["A", "O", "E"] else "A"
         return f"I WANT {preposition} {correct_food}"
-    
+
     def reward(self, action):
         transcript = self.action2text(action)
         correct_transcript = self.get_correct_transcript()
@@ -108,29 +105,3 @@ class SpoLacq3(gym.Env):
             return 1
         else:
             return 0
-
-
-def test(num_episode: int, env, model: BaseAlgorithm) -> None:
-    """Test the learnt agent."""
-    
-    for i in range(num_episode):
-        print(f"episode {i}", "-"*40)
-        state = env.reset()
-        total_reward = 0
-        while True:
-            # render the state
-            env.render()
-            
-            # Agent gets an environment state and returns a decided action
-            action, _ = model.predict(state, deterministic=True)
-            
-            # Environment gets an action from the agent, proceeds the time step,
-            # and returns the new state and reward etc.
-            state, reward, done, info = env.step(action)
-            total_reward += reward
-            utterance = env.dlgworld.asr(env.sounddic[action])
-            print(f"utterance: {utterance}, reward: {reward}")
-            
-            if done:
-                print(f"total_reward: {total_reward}\n")
-                break

@@ -22,29 +22,29 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+import os
 import random
 from typing import List
-import os
 
 import librosa
 import numpy as np
 import torch
-from transformers import Wav2Vec2Processor, Wav2Vec2ForCTC
 import yaml
+from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 
 
 class ASR:
     def __init__(self, modelname_or_path: str, lr: float = 1e-6):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
+
         self.processor = Wav2Vec2Processor.from_pretrained(modelname_or_path)
-        
+
         self.model = Wav2Vec2ForCTC.from_pretrained(modelname_or_path).to(self.device)
         self.model.freeze_feature_encoder()
         self.model.eval()
-        
+
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
-    
+
     @torch.inference_mode()
     def __call__(self, audio_input: np.ndarray) -> str:
         # pad input values and return pt tensor
@@ -59,63 +59,58 @@ class ASR:
         # transcribe
         transcript = self.processor.decode(predicted_ids[0])
         return transcript
-    
+
     def save(self, path: str) -> None:
         self.processor.save_pretrained(path)
         self.model.save_pretrained(path)
-    
+
     def train(self, audio_input: List[np.ndarray], target_transcript: List[str]) -> None:
         # pad input values and return pt tensor
         inputs = self.processor(
-            audio_input, padding=True, return_attention_mask=True,
-            sampling_rate=16000, return_tensors="pt").to(self.device)
+            audio_input, padding=True, return_attention_mask=True, sampling_rate=16000, return_tensors="pt"
+        ).to(self.device)
 
         # encode labels
         with self.processor.as_target_processor():
-            labels = self.processor(target_transcript, padding=True,
-                                    return_tensors="pt").input_ids
+            labels = self.processor(target_transcript, padding=True, return_tensors="pt").input_ids
             labels = labels.masked_fill(labels.eq(0), -100)
 
         # compute loss by passing labels
-        loss = self.model(
-            inputs["input_values"],
-            attention_mask=inputs["attention_mask"],
-            labels=labels).loss
+        loss = self.model(inputs["input_values"], attention_mask=inputs["attention_mask"], labels=labels).loss
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
 
 
 obj2color = {
-    'apple': 'red',
-    'banana': 'yellow',
-    'carrot': 'orange',
-    'cherry': 'black',
-    'cucumber': 'green',
-    'egg': 'chicken',
-    'eggplant': 'purple',
-    'green_pepper': 'green',
-    'hyacinth_bean': 'green',
-    'kiwi_fruit': 'brown',
-    'lemon': 'yellow',
-    'onion': 'yellow',
-    'orange': 'orange',
-    'potato': 'brown',
-    'sliced_bread': 'yellow',
-    'small_cabbage': 'green',
-    'strawberry': 'red',
-    'sweet_potato': 'brown',
-    'tomato': 'red',
-    'white_radish': 'white',
+    "apple": "red",
+    "banana": "yellow",
+    "carrot": "orange",
+    "cherry": "black",
+    "cucumber": "green",
+    "egg": "chicken",
+    "eggplant": "purple",
+    "green_pepper": "green",
+    "hyacinth_bean": "green",
+    "kiwi_fruit": "brown",
+    "lemon": "yellow",
+    "onion": "yellow",
+    "orange": "orange",
+    "potato": "brown",
+    "sliced_bread": "yellow",
+    "small_cabbage": "green",
+    "strawberry": "red",
+    "sweet_potato": "brown",
+    "tomato": "red",
+    "white_radish": "white",
 }
 
 
 def add_indications(name, idx):
-    preposition = 'an' if name[0] in ['a', 'o', 'e'] else 'a'
+    preposition = "an" if name[0] in ["a", "o", "e"] else "a"
     color = obj2color[name]
-    preposition2 = 'an' if color[0] in ['a', 'o', 'e'] else 'a'
-    ll = [name, f'{preposition} {name}',
-          f'{preposition2} {color} {name}', f"i want {preposition} {name}"]
+    preposition2 = "an" if color[0] in ["a", "o", "e"] else "a"
+    ll = [name, f"{preposition} {name}", f"{preposition2} {color} {name}", f"i want {preposition} {name}"]
     return ll[idx].replace("_", " ").upper()
 
 
@@ -133,7 +128,7 @@ class TrainSet:
 
                     target_transcript = add_indications(food, i)
                     self.target_transcripts.append(target_transcript)
-    
+
     def __len__(self):
         return len(self.audios)
 
@@ -141,18 +136,17 @@ class TrainSet:
 def make_train_loader(dataset: TrainSet, batch_size: int):
     dataset_size = len(dataset)
 
-    indices = random.sample(list(range(dataset_size)),
-                            k=batch_size*(dataset_size//batch_size))
+    indices = random.sample(list(range(dataset_size)), k=batch_size * (dataset_size // batch_size))
 
     data_loader = []
     for batch_id in range(dataset_size // batch_size):
         batch_audios = []
         batch_target_transcripts = []
 
-        for index in indices[batch_size*batch_id:batch_size*(batch_id+1)]:
+        for index in indices[batch_size * batch_id : batch_size * (batch_id + 1)]:
             batch_audios.append(dataset.audios[index])
             batch_target_transcripts.append(dataset.target_transcripts[index])
-        
+
         data_loader.append((batch_audios, batch_target_transcripts))
     return data_loader
 
@@ -169,7 +163,7 @@ def make_val_loader():
                 target_transcript = food.replace("_", " ").upper()
 
                 data_loader.append((audio, target_transcript))
-    
+
     return data_loader
 
 
@@ -194,25 +188,23 @@ def validate(model, val_loader):
 if __name__ == "__main__":
     with open("../conf/spolacq3.yaml") as y:
         config = yaml.safe_load(y)
-    
+
     asr_dir = os.path.join(os.path.dirname(__file__), "..", config["ASR"]["dir"])
 
     if not os.path.isdir(asr_dir):
-        
         model = ASR(config["ASR"]["model"], lr=config["ASR"]["lr"])
         train_set = TrainSet()
         val_loader = make_val_loader()
         max_accuracy = 0
 
-        for epoch in range(1, 1+config["ASR"]["epoch"]):
-            
+        for epoch in range(1, 1 + config["ASR"]["epoch"]):
             train_loader = make_train_loader(train_set, config["ASR"]["batch_size"])
-            
+
             train(model, train_loader)
             accuracy = validate(model, val_loader)
-            
+
             print(f"epoch: {epoch}, accuracy: {accuracy}", flush=True)
-            
+
             if max_accuracy < accuracy:
                 max_accuracy = accuracy
                 model.save(asr_dir)

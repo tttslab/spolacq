@@ -1,17 +1,17 @@
-from glob import glob
 import json
 import os
 import sys
+from glob import glob
 
 import numpy as np
 import resampy
-from stable_baselines3.common.noise import NormalActionNoise
 import torch
 import yaml
+from stable_baselines3.common.noise import NormalActionNoise
 
-from sb3_api import CustomDDPG, CustomTD3Policy
+from asr_api import ASR
 from gym_api import SpoLacq3
-from wav2vec2_api import ASR
+from sb3_api import CustomDDPG, CustomTD3Policy
 
 sys.path.append("../tools/I2U")
 from models_i2u import ImageToUnit
@@ -28,13 +28,12 @@ from models_hifi_gan import Generator
 
 
 def make_action2text(config):
-
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # I2U
     word_map_path = os.path.join(os.path.dirname(__file__), "..", config["I2U"]["word_map"])
     image_to_unit_model_path = os.path.join(os.path.dirname(__file__), "..", config["I2U"]["model_path"])
-    
+
     with open(word_map_path) as j:
         word_map = json.load(j)
     rev_word_map = {v: k for k, v in word_map.items()}
@@ -57,7 +56,7 @@ def make_action2text(config):
 
     with open(hifi_gan_config_path) as f:
         data = f.read()
-    
+
     json_config = json.loads(data)
     h = AttrDict(json_config)
     generator = Generator(h).to(device)
@@ -71,43 +70,43 @@ def make_action2text(config):
     @torch.inference_mode()
     def action2text(action):
         action = torch.from_numpy(action).unsqueeze(0).to(device)
-        
-        unit_seq = image_to_unit.inference(action=action, beam_size=config["I2U"]["beam_size"])
+
+        unit_seq = image_to_unit.infer(action=action, beam_size=config["I2U"]["beam_size"])
         words = [rev_word_map[idx] for idx in unit_seq if rev_word_map[idx] not in special_words]
 
         sequence = np.array(text_to_sequence(" ".join(words), ["english_cleaners"]))[None, :]
         sequence = torch.autograd.Variable(torch.from_numpy(sequence)).to(device).long()
-        
+
         try:
             _, mel_outputs_postnet, _, _ = tacotron2.inference(sequence)
-            
+
             audio = generator(mel_outputs_postnet)
             audio = audio.squeeze().cpu().numpy().astype(np.float64)
             audio = resampy.resample(audio, 22050, 16000)
-            
+
             transcript = asr(audio)
 
         except RuntimeError as e:
             transcript = ""
             print(e, flush=True)
-        
+
         return transcript
-    
+
     return action2text
 
 
 if __name__ == "__main__":
     with open("../conf/spolacq3.yaml") as y:
         config = yaml.safe_load(y)
-    
+
     action_noise = NormalActionNoise(
-        mean=np.zeros(768+config["I2U"]["d_embed"]),
+        mean=np.zeros(768 + config["I2U"]["d_embed"]),
         sigma=np.concatenate(
             [
                 np.zeros(768),
-                config["RL"]["action_noise_sigma"]*np.ones(config["I2U"]["d_embed"]),
+                config["RL"]["action_noise_sigma"] * np.ones(config["I2U"]["d_embed"]),
             ]
-        )
+        ),
     )
 
     action2text = make_action2text(config)
@@ -117,15 +116,15 @@ if __name__ == "__main__":
         d_image_features=768,
         d_embed=config["I2U"]["d_embed"],
         action2text=action2text,
-        )
-    
+    )
+
     eval_env = SpoLacq3(
         glob("../data/dataset/*/test_number[12]/*.jpg"),
         d_image_features=768,
         d_embed=config["I2U"]["d_embed"],
         action2text=action2text,
-        )
-    
+    )
+
     model = CustomDDPG(
         CustomTD3Policy,
         env,
@@ -139,8 +138,12 @@ if __name__ == "__main__":
         policy_kwargs=dict(
             net_arch=dict(
                 pi=[[150, 75, 2], [150, 75, config["I2U"]["d_embed"]]],
-                qf=[150+768+config["I2U"]["d_embed"], 150+768+config["I2U"]["d_embed"],
-                    150+768+config["I2U"]["d_embed"], 1],
+                qf=[
+                    150 + 768 + config["I2U"]["d_embed"],
+                    150 + 768 + config["I2U"]["d_embed"],
+                    150 + 768 + config["I2U"]["d_embed"],
+                    1,
+                ],
             ),
         ),
         clip_sentence_embedding=config["RL"]["clip_sentence_embedding"],
@@ -152,4 +155,4 @@ if __name__ == "__main__":
         eval_freq=config["RL"]["eval_freq"],
         n_eval_episodes=config["RL"]["n_eval_episodes"],
         eval_log_path=os.path.join(os.path.dirname(__file__), "..", config["RL"]["eval_log_path"]),
-        )
+    )

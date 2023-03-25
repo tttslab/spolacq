@@ -28,8 +28,8 @@ SOFTWARE.
 import sys
 
 import torch
-from torch import nn
 import torch.nn.functional as F
+from torch import nn
 
 from module import PositionalEncoding
 
@@ -39,22 +39,22 @@ from vision_transformer import VisionTransformer
 
 class ImageToUnit(nn.Module):
     def __init__(
-            self,
-            # Vocab
-            word_map: dict,
-            max_len: int = 102,
-            # VAE
-            d_model: int = 768,
-            d_embed: int = 8,
-            std: float = 0.1,
-            kl_weight: float = 0.01,
-            # Transformer
-            num_layers: int = 6,
-            layer_norm_eps: float = 1e-5,
-            nhead: int = 8,
-            activation = "gelu",
-            norm_first: bool = True,
-            ):
+        self,
+        # Vocab
+        word_map: dict,
+        max_len: int = 102,
+        # VAE
+        d_model: int = 768,
+        d_embed: int = 8,
+        std: float = 0.1,
+        kl_weight: float = 0.01,
+        # Transformer
+        num_layers: int = 6,
+        layer_norm_eps: float = 1e-5,
+        nhead: int = 8,
+        activation="gelu",
+        norm_first: bool = True,
+    ):
         super().__init__()
 
         self.word_map = word_map
@@ -71,12 +71,22 @@ class ImageToUnit(nn.Module):
         decoder_norm = nn.LayerNorm(d_model, eps=layer_norm_eps)
 
         encoder_layer = nn.TransformerEncoderLayer(
-            d_model=d_model, nhead=nhead, dim_feedforward=4*d_model,
-            activation=activation, batch_first=True, norm_first=norm_first)
+            d_model=d_model,
+            nhead=nhead,
+            dim_feedforward=4 * d_model,
+            activation=activation,
+            batch_first=True,
+            norm_first=norm_first,
+        )
         decoder_layer = nn.TransformerDecoderLayer(
-            d_model=d_model, nhead=nhead, dim_feedforward=4*d_model,
-            activation=activation, batch_first=True, norm_first=norm_first)
-        
+            d_model=d_model,
+            nhead=nhead,
+            dim_feedforward=4 * d_model,
+            activation=activation,
+            batch_first=True,
+            norm_first=norm_first,
+        )
+
         self.encoder = nn.TransformerEncoder(encoder_layer, num_layers, encoder_norm)
         self.decoder = nn.TransformerDecoder(decoder_layer, num_layers, decoder_norm)
 
@@ -91,25 +101,30 @@ class ImageToUnit(nn.Module):
         )
         self.image_encoder.load_state_dict(state_dict)
 
-    def forward(self, imgs: torch.Tensor, units: torch.Tensor,
-                seq_len: torch.Tensor, padding_mask: torch.BoolTensor):
+    def forward(
+        self,
+        imgs: torch.Tensor,
+        units: torch.Tensor,
+        seq_len: torch.Tensor,
+        padding_mask: torch.BoolTensor,
+    ):
         x = self.embed(units)
         x = x.permute(1, 0, 2)
         x = self.pos_enc(x)
         x = x.permute(1, 0, 2)
 
         z = self.encoder(x, src_key_padding_mask=padding_mask)
-        
+
         # Global average pooling
         z = z * padding_mask.logical_not().unsqueeze(2)
         z = z.sum(dim=1) / seq_len.unsqueeze(1)
-        
+
         # Reparameterization trick
         mean = self.linear1(z)
         std = torch.full_like(mean, self.std)
         eps = torch.randn_like(mean)
         z = mean + self.std * eps
-        
+
         z = self.linear2(z)
 
         with torch.no_grad():
@@ -123,22 +138,23 @@ class ImageToUnit(nn.Module):
             memory,
             tgt_mask=self.subsequent_mask(x.size(1)).to(x.device),
             tgt_key_padding_mask=padding_mask,
-            )
+        )
         logits = self.head(x)
         return logits, self.kl_weight * self.kl_loss(mean, std)
-    
+
     def subsequent_mask(self, size: int):
         return torch.triu(torch.full((size, size), float("-inf")), diagonal=1)
-    
-    def kl_loss(self, mean: torch.Tensor, std: torch.Tensor):
-        var = std ** 2
-        return torch.sum(-1/2*torch.sum(1 + var.log() - mean**2 - var, dim=1), dim=0)
-    
-    @torch.inference_mode()
-    def inference(self, action: torch.Tensor, beam_size: int = 50):
 
-        image_features = action[:, :-self.d_embed]
-        sentence_embed = action[:, -self.d_embed:]
+    def kl_loss(self, mean: torch.Tensor, std: torch.Tensor):
+        var = std**2
+        return torch.sum(
+            -1 / 2 * torch.sum(1 + var.log() - mean**2 - var, dim=1), dim=0
+        )
+
+    @torch.inference_mode()
+    def infer(self, action: torch.Tensor, beam_size: int = 50):
+        image_features = action[:, : -self.d_embed]
+        sentence_embed = action[:, -self.d_embed :]
         sentence_embed = self.linear2(sentence_embed)
         memory = torch.stack([image_features, sentence_embed], dim=1)
         memory = memory.expand(beam_size, 2, 768)
@@ -146,7 +162,9 @@ class ImageToUnit(nn.Module):
         k = beam_size
 
         # Tensor to store top k previous words at each step; now they're just <start>
-        k_prev_words = torch.LongTensor([[self.word_map['<start>']]] * k).to(self.embed.weight.device)  # (k, 1)
+        k_prev_words = torch.LongTensor([[self.word_map["<start>"]]] * k).to(
+            self.embed.weight.device
+        )  # (k, 1)
 
         # Tensor to store top k sequences; now they're just <start>
         seqs = k_prev_words  # (k, 1)
@@ -172,7 +190,7 @@ class ImageToUnit(nn.Module):
                 x,
                 memory,
                 tgt_mask=self.subsequent_mask(x.size(1)).to(x.device),
-                )
+            )
             x = x[:, -1, :]
             x = self.head(x)
             scores = F.log_softmax(x, dim=1)
@@ -185,18 +203,27 @@ class ImageToUnit(nn.Module):
                 top_k_scores, top_k_words = scores[0].topk(k, 0, True, True)  # (s)
             else:
                 # Unroll and find top scores, and their unrolled indices
-                top_k_scores, top_k_words = scores.view(-1).topk(k, 0, True, True)  # (s)
+                top_k_scores, top_k_words = scores.view(-1).topk(
+                    k, 0, True, True
+                )  # (s)
 
             # Convert unrolled indices to actual indices of scores
-            prev_word_inds = torch.div(top_k_words, self.vocab_size, rounding_mode="floor")  # (s)
+            prev_word_inds = torch.div(
+                top_k_words, self.vocab_size, rounding_mode="floor"
+            )  # (s)
             next_word_inds = top_k_words % self.vocab_size  # (s)
 
             # Add new words to sequences
-            seqs = torch.cat([seqs[prev_word_inds], next_word_inds.unsqueeze(1)], dim=1)  # (s, step+1)
+            seqs = torch.cat(
+                [seqs[prev_word_inds], next_word_inds.unsqueeze(1)], dim=1
+            )  # (s, step+1)
 
             # Which sequences are incomplete (didn't reach <end>)?
-            incomplete_inds = [ind for ind, next_word in enumerate(next_word_inds) if
-                               next_word != self.word_map['<end>']]
+            incomplete_inds = [
+                ind
+                for ind, next_word in enumerate(next_word_inds)
+                if next_word != self.word_map["<end>"]
+            ]
             complete_inds = list(set(range(len(next_word_inds))) - set(incomplete_inds))
 
             # Set aside complete sequences
@@ -217,7 +244,7 @@ class ImageToUnit(nn.Module):
             if step == self.max_len:
                 break
             step += 1
-        
+
         if len(complete_seqs_scores) != 0:
             i = complete_seqs_scores.index(max(complete_seqs_scores))
             seq = complete_seqs[i]

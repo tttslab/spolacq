@@ -36,7 +36,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import math
 
 import torch
-from torch import nn, Tensor
+from torch import Tensor, nn
 
 
 class PositionalEncoding(nn.Module):

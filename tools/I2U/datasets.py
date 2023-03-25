@@ -23,12 +23,13 @@ SOFTWARE.
 """
 
 
-import torch
-from torch.utils.data import Dataset
-import torchvision.transforms as transforms
-import h5py
 import json
 import os
+
+import h5py
+import torch
+import torchvision.transforms as transforms
+from torch.utils.data import Dataset
 
 
 class CaptionDataset(Dataset):
@@ -36,8 +37,13 @@ class CaptionDataset(Dataset):
     A PyTorch Dataset class to be used in a PyTorch DataLoader to create batches.
     """
 
-    def __init__(self, data_folder, data_name, split,
-                 transform=transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])):
+    def __init__(
+        self,
+        data_folder,
+        data_name,
+        split,
+        transform=transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ):
         """
         :param data_folder: folder where data files are stored
         :param data_name: base name of processed datasets
@@ -45,21 +51,21 @@ class CaptionDataset(Dataset):
         :param transform: image transform pipeline
         """
         self.split = split
-        assert self.split in {'TRAIN', 'VAL', 'TEST'}
+        assert self.split in {"TRAIN", "VAL", "TEST"}
 
         # Open hdf5 file where images are stored
-        self.h = h5py.File(os.path.join(data_folder, self.split + '_IMAGES_' + data_name + '.hdf5'), 'r')
-        self.imgs = self.h['images']
+        self.h = h5py.File(os.path.join(data_folder, self.split + "_IMAGES_" + data_name + ".hdf5"), "r")
+        self.imgs = self.h["images"]
 
         # Captions per image
-        self.cpi = self.h.attrs['captions_per_image']
+        self.cpi = self.h.attrs["captions_per_image"]
 
         # Load encoded captions (completely into memory)
-        with open(os.path.join(data_folder, self.split + '_CAPTIONS_' + data_name + '.json'), 'r') as j:
+        with open(os.path.join(data_folder, self.split + "_CAPTIONS_" + data_name + ".json"), "r") as j:
             self.captions = json.load(j)
 
         # Load caption lengths (completely into memory)
-        with open(os.path.join(data_folder, self.split + '_CAPLENS_' + data_name + '.json'), 'r') as j:
+        with open(os.path.join(data_folder, self.split + "_CAPLENS_" + data_name + ".json"), "r") as j:
             self.caplens = json.load(j)
 
         # PyTorch transformation pipeline for the image (normalizing, etc.)
@@ -69,13 +75,13 @@ class CaptionDataset(Dataset):
         self.dataset_size = len(self.captions)
 
         self.captions = torch.LongTensor(self.captions)
-        with open(os.path.join(data_folder, 'WORDMAP_' + data_name + '.json'), 'r') as j:
+        with open(os.path.join(data_folder, "WORDMAP_" + data_name + ".json"), "r") as j:
             word_map = json.load(j)
-        self.padding_mask = self.captions == word_map['<pad>']
+        self.padding_mask = self.captions == word_map["<pad>"]
 
     def __getitem__(self, i):
         # Remember, the Nth caption corresponds to the (N // captions_per_image)th image
-        img = torch.FloatTensor(self.imgs[i // self.cpi] / 255.)
+        img = torch.FloatTensor(self.imgs[i // self.cpi] / 255.0)
         if self.transform is not None:
             img = self.transform(img)
 

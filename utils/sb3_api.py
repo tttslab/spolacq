@@ -26,6 +26,7 @@ import sys
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import gym
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
@@ -44,9 +45,8 @@ from vision_transformer import VisionTransformer
 
 
 class CustomFeaturesExtractorUsingDINO(BaseFeaturesExtractor):
-    def __init__(self, observation_space: gym.spaces.Dict,
-                 image_features_dim: int = 50, state_features_dim: int = 50):
-        super().__init__(observation_space, 2*image_features_dim+state_features_dim)
+    def __init__(self, observation_space: gym.spaces.Dict, image_features_dim: int = 50, state_features_dim: int = 50):
+        super().__init__(observation_space, 2 * image_features_dim + state_features_dim)
 
         self.image_encoder = VisionTransformer(patch_size=8, qkv_bias=True)
         state_dict = torch.hub.load_state_dict_from_url(
@@ -57,7 +57,7 @@ class CustomFeaturesExtractorUsingDINO(BaseFeaturesExtractor):
 
         self.state_encoder = nn.Linear(observation_space.spaces["state"].shape[0], state_features_dim)
         self.linear = nn.Linear(768, image_features_dim)
-    
+
     def forward(self, observation: Dict[str, torch.Tensor]):
         state_features = self.state_encoder(observation["state"])
 
@@ -65,7 +65,7 @@ class CustomFeaturesExtractorUsingDINO(BaseFeaturesExtractor):
             self.image_encoder.eval()
             leftimage_features = self.image_encoder(observation["leftimage"])
             rightimage_features = self.image_encoder(observation["rightimage"])
-        
+
         features = torch.cat((state_features, self.linear(leftimage_features), self.linear(rightimage_features)), dim=1)
         features = F.relu(features)
         return features, leftimage_features, rightimage_features
@@ -140,9 +140,9 @@ class CustomActor(BasePolicy):
 class CustomMu(nn.Module):
     def __init__(self, net_arch: List[List[int]], activation_fn: Type[nn.Module]):
         super().__init__()
-        
+
         assert len(net_arch) == 2 and net_arch[0][-1] == 2
-        
+
         self.layers_alpha = nn.ModuleList()
         self.layers_embed = nn.ModuleList()
 
@@ -155,7 +155,7 @@ class CustomMu(nn.Module):
                 self.layers_alpha.append(activation_fn())
             else:
                 self.layers_alpha.append(nn.Linear(net_arch[0][n], net_arch[0][n + 1], bias=False))
-        
+
         if net_arch[1]:
             self.use_embed = True
 
@@ -168,10 +168,10 @@ class CustomMu(nn.Module):
                     self.layers_embed.append(nn.LayerNorm(net_arch[1][n + 1]))
         else:
             self.use_embed = False
-    
+
     def forward(self, x):
         features, leftimage_features, rightimage_features = x
-        
+
         alpha = features
         embed = features
 
@@ -192,7 +192,7 @@ class CustomMu(nn.Module):
             index = index.expand(image_features.size(0), 1, image_features.size(2))  # (batch_size, 1, features dim.)
             image_features = torch.gather(image_features, dim=1, index=index)
             image_features = image_features.squeeze(1)
-        
+
         if self.use_embed:
             action = torch.cat([image_features, embed], dim=1)
         else:
@@ -290,7 +290,7 @@ class QNet(nn.Module):
                 self.layers.append(activation_fn())
             else:
                 self.layers.append(nn.Linear(net_arch[n], net_arch[n + 1], bias=False))
-    
+
     def forward(self, x: torch.Tensor):
         for layer in self.layers:
             x = layer(x)
@@ -453,7 +453,6 @@ class CustomTD3Policy(BasePolicy):
         self.training = mode
 
 
-
 class CustomDDPG(TD3):
     def __init__(
         self,
@@ -480,7 +479,6 @@ class CustomDDPG(TD3):
         _init_setup_model: bool = True,
         clip_sentence_embedding: float = 2.5,
     ):
-
         super().__init__(
             policy=policy,
             env=env,
@@ -516,9 +514,9 @@ class CustomDDPG(TD3):
 
         if _init_setup_model:
             self._setup_model()
-        
+
         self.clip_sentence_embedding = clip_sentence_embedding
-    
+
     def learn(
         self,
         total_timesteps: int,
@@ -531,7 +529,6 @@ class CustomDDPG(TD3):
         eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
     ) -> OffPolicyAlgorithm:
-
         return super().learn(
             total_timesteps=total_timesteps,
             callback=callback,
@@ -543,7 +540,7 @@ class CustomDDPG(TD3):
             eval_log_path=eval_log_path,
             reset_num_timesteps=reset_num_timesteps,
         )
-    
+
     def _sample_action(
         self,
         learning_starts: int,
@@ -584,10 +581,15 @@ class CustomDDPG(TD3):
                 unscaled_action = unscaled_action + action_noise().astype(unscaled_action.dtype)
                 unscaled_action = np.concatenate(
                     [
-                        unscaled_action[:, :-self.policy.actor.mu.layers_embed[-1].weight.size(0)],
-                        np.clip(unscaled_action[:, -self.policy.actor.mu.layers_embed[-1].weight.size(0):],
-                                -self.clip_sentence_embedding, self.clip_sentence_embedding),
-                    ], axis=1)
+                        unscaled_action[:, : -self.policy.actor.mu.layers_embed[-1].weight.size(0)],
+                        np.clip(
+                            unscaled_action[:, -self.policy.actor.mu.layers_embed[-1].weight.size(0) :],
+                            -self.clip_sentence_embedding,
+                            self.clip_sentence_embedding,
+                        ),
+                    ],
+                    axis=1,
+                )
 
             # We store the scaled action in the buffer
             # action = self.policy.unscale_action(scaled_action)
@@ -598,7 +600,7 @@ class CustomDDPG(TD3):
             buffer_action = unscaled_action
             action = buffer_action
         return action, buffer_action
-    
+
     def train(self, gradient_steps: int, batch_size: int = 100) -> None:
         # Switch to train mode (this affects batch norm / dropout)
         self.policy.set_training_mode(True)
@@ -609,7 +611,6 @@ class CustomDDPG(TD3):
         actor_losses, critic_losses = [], []
 
         for _ in range(gradient_steps):
-
             self._n_updates += 1
             # Sample replay buffer
             replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)
@@ -644,3 +645,38 @@ class CustomDDPG(TD3):
         if len(actor_losses) > 0:
             self.logger.record("train/actor_loss", np.mean(actor_losses))
         self.logger.record("train/critic_loss", np.mean(critic_losses))
+
+
+def test(num_episode: int, env, model: CustomDDPG) -> None:
+    """Test the learnt agent."""
+
+    for i in range(num_episode):
+        print(f"episode {i}", "-" * 40)
+        state = env.reset()
+        total_reward = 0
+        while True:
+            # render the state
+            env.render()
+
+            # Agent gets an environment state and returns a decided action
+            action, _ = model.predict(state, deterministic=True)
+
+            # Environment gets an action from the agent, proceeds the time step,
+            # and returns the new state and reward etc.
+            state, reward, done, info = env.step(action)
+            total_reward += reward
+            utterance = env.dlgworld.asr(env.sounddic[action])
+            print(f"utterance: {utterance}, reward: {reward}")
+
+            if done:
+                print(f"total_reward: {total_reward}\n")
+                break
+
+
+def plot_reward(evaluations_path: str, savefig_path: str):
+    evaluations = np.load(evaluations_path)
+    plt.plot(evaluations["timesteps"], np.mean(evaluations["results"], axis=1))
+    plt.grid()
+    plt.xlabel("Episode")
+    plt.ylabel("Average reward")
+    plt.savefig(savefig_path)

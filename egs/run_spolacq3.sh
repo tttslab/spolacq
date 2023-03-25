@@ -7,5 +7,5 @@ python preprocess.py
 python train.py --output_directory=../../models/U2S/outdir --log_directory=logdir
 
 cd ../../utils
-python wav2vec2_api.py  # finetune wav2vec2
+python asr_api.py  # finetune wav2vec2
 python main_spolacq3.py  # reinforcement learning
