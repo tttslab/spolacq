@@ -4,11 +4,12 @@ import statistics
 
 import torch
 import yaml
-from datasets import CaptionDataset
-from models_i2u import ImageToUnit
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence
 from torch.utils.data import DataLoader
+
+from datasets import CaptionDataset
+from models_i2u import ImageToUnit
 
 
 def train(device, loader, model, reconstruction_loss, optimizer):
