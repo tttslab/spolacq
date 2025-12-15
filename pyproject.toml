@@ -1,0 +1,47 @@
+[project]
+name = "spolacq-gds"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "tttslab", email = "tttslab@example.com"}
+]
+readme = "README.md"
+requires-python = ">=3.10,<3.11"
+dependencies = [
+    "stable-baselines3 (>=2.6.0,<3.0.0)",
+    "transformers (>=4.49.0)",
+    "accelerate (>=1.1.1,<2.0.0)",
+    "gtts (>=2.5.4,<3.0.0)",
+    "tensorboard (>=2.16.2,<3.0.0)",
+    "resampy (>=0.4.3,<0.5.0)",
+    "inflect (>=7.4.0,<8.0.0)",
+    "soundfile (>=0.12.1,<1.0.0)",
+    "unidecode (>=1.3.8,<2.0.0)",
+    "scikit-learn (>=1.5.2,<2.0.0)",
+    "audioread (>=3.0.1,<4.0.0)",
+    "ffmpeg-python (>=0.2.0,<0.3.0)",
+    "h5py (>=3.11.0,<4.0.0)",
+    "librosa (>=0.10.2,<1.0.0)",
+    "pydub (>=0.25.1,<0.26.0)",
+    "tensorflow (>=2.16.1,<3.0.0)",
+    "torchaudio (>=2.5.1,<3.0.0)",
+    "torchvision (>=0.20.1,<1.0.0)",
+    "gmpy2 (>=2.2.1,<3.0.0)",
+    "ipykernel (>=6.29.5,<7.0.0)",
+    "diffusers (>=0.31.0,<1.0.0)",
+    "peft (>=0.14.0,<1.0.0)",
+    "vllm (>=0.7.3,<1.0.0)",
+    "ipywidgets (>=8.1.5,<9.0.0)",
+    "gymnasium (>=1.1.1,<2.0.0)",
+    "phonemizer-fork (>=3.3.0,<3.4.0)",
+    "kokoro (>=0.9.4,<0.10.0)",
+    "misaki[en] (>=0.9.4,<0.10.0)",
+    "torchcodec (>=0.8.1,<0.9.0)",
+]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+package-mode = false

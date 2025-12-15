@@ -1,0 +1,5 @@
+
+{
+    "agent_class": "AgentWithUnits",
+    "trainer_class": "Trainer"
+}

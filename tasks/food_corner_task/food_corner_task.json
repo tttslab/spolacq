@@ -1,0 +1,133 @@
+{
+  "initial_scene_id": 0,
+  "items": [
+    {
+      "id": 1,
+      "name": "japanese food corner",
+      "attributes": {
+        "type": "corner",
+        "flavor_intensity": 0,
+        "volume": 0
+      }
+    },
+    {
+      "id": 2,
+      "name": "western food corner",
+      "attributes": {
+        "type": "corner",
+        "flavor_intensity": 0,
+        "volume": 0
+      }
+    },
+    {
+      "id": 3,
+      "name": "Udon",
+      "attributes": {
+        "type": "food",
+        "flavor_intensity": 0.3,
+        "volume": 0.9
+      }
+    },
+    {
+      "id": 4,
+      "name": "rice bowl",
+      "attributes": {
+        "type": "food",
+        "flavor_intensity": 0.4,
+        "volume": 0.4
+      }
+    },
+    {
+      "id": 5,
+      "name": "Tofu",
+      "attributes": {
+        "type": "food",
+        "flavor_intensity": 0.1,
+        "volume": 0.1
+      }
+    },
+    {
+      "id": 6,
+      "name": "sushi",
+      "attributes": {
+        "type": "food",
+        "flavor_intensity": 0.2,
+        "volume": 0.6
+      }
+    },
+    {
+      "id": 7,
+      "name": "hamburger",
+      "attributes": {
+        "type": "food",
+        "flavor_intensity": 1.0,
+        "volume": 0.6
+      }
+    },
+    {
+      "id": 8,
+      "name": "sandwich",
+      "attributes": {
+        "type": "food",
+        "flavor_intensity": 0.7,
+        "volume": 0.3
+      }
+    },
+    {
+      "id": 9,
+      "name": "pizza",
+      "attributes": {
+        "type": "food",
+        "flavor_intensity": 0.9,
+        "volume": 0.9
+      }
+    },
+    {
+      "id": 10,
+      "name": "salad",
+      "attributes": {
+        "type": "food",
+        "flavor_intensity": 0.6,
+        "volume": 0.1
+      }
+    }
+  ],
+  "scenes": [
+    {
+      "id": 0,
+      "name": "Corner Selection",
+      "role_description": "a clerk at a food court",
+      "speaker_description": "af_heart",
+      "items": [1, 2],
+      "possible_next_scenes": [1, 2],
+      "system_guidelines": "Guidelines:\n1. **If the customer selects a valid corner with clear language**: \n   - The input must EXACTLY match a corner name in the items list\n   - Return that exact item ID\n   - For japanese food corner (id:1), transition to japanese menu scene (id:1)\n   - For western food corner (id:2), transition to western menu scene (id:2)\n2. **If you cannot understand the meaning of the customer's sentence or if there is a grammatical error**: \n   - Politely ask for clarification\n   - Do not provide any item ID\n   - Keep item_name as null\n   - Stay in current scene\n3. **If the customer selects an invalid item**: \n   - This includes:\n     * Items from different scenes\n     * Products not in the list\n     * Any variations of the corner names\n   - Do not provide any item ID\n   - Keep item_name as null\n   - Stay in current scene\n4. **If the customer says nothing or arrives without a specific request**: \n   - Welcome them to the food court and ask which corner they would like to visit\n   - At this stage, do not provide any item ID\n   - Keep item_name as null\n   - Stay in current scene"
+    },
+    {
+      "id": 1,
+      "name": "Japanese Menu",
+      "role_description": "a clerk at the japanese food corner",
+      "speaker_description": "af_heart",
+      "items": [3, 4, 5, 6],
+      "possible_next_scenes": [3],
+      "system_guidelines": "Guidelines:\n1. **If the customer selects a valid menu item with clear language**: \n   - The input must EXACTLY match a menu item name in the items list\n   - Return that exact item ID\n   - Thank them and transition to stop scene\n2. **If you cannot understand the meaning or if there is a grammatical error**: \n   - Politely ask for clarification\n   - Do not provide any item ID\n   - Keep item_name as null\n   - Transition to stop scene\n3. **If the customer selects an invalid item**: \n   - This includes:\n     * Items from different scenes\n     * Products not in the list\n     * Any variations of the menu item names\n   - Do not provide any item ID\n   - Keep item_name as null\n   - Transition to stop scene\n4. **If the customer says nothing**: \n   - Ask what they would like to order from the japanese menu\n   - Do not provide any item ID\n   - Keep item_name as null\n   - Transition to stop scene"
+    },
+    {
+      "id": 2,
+      "name": "Western Menu",
+      "role_description": "a clerk at the western food corner",
+      "speaker_description": "af_heart",
+      "items": [7, 8, 9, 10],
+      "possible_next_scenes": [3],
+      "system_guidelines": "Guidelines:\n1. **If the customer selects a valid menu item with clear language**: \n   - The input must EXACTLY match a menu item name in the items list\n   - Return that exact item ID\n   - Thank them and transition to stop scene\n2. **If you cannot understand the meaning or if there is a grammatical error**: \n   - Politely ask for clarification\n   - Do not provide any item ID\n   - Keep item_name as null\n   - Transition to stop scene\n3. **If the customer selects an invalid item**: \n   - This includes:\n     * Items from different scenes\n     * Products not in the list\n     * Any variations of the menu item names\n   - Do not provide any item ID\n   - Keep item_name as null\n   - Transition to stop scene\n4. **If the customer says nothing**: \n   - Ask what they would like to order from the western menu\n   - Do not provide any item ID\n   - Keep item_name as null\n   - Transition to stop scene"
+    },
+    {
+      "id": 3,
+      "name": "Stop",
+      "role_description": "a clerk at the food court",
+      "speaker_description": "af_heart",
+      "items": [],
+      "possible_next_scenes": [3],
+      "system_guidelines": "Thank them for their order and wish them a nice meal."
+    }
+  ]
+}

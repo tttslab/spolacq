@@ -1,0 +1,19 @@
+{
+  "scene": {
+    "grocery_store": "food"
+  },
+  "food": [
+    "{name}",
+    "i want {name}",
+    "i would like to have {name}",
+    "i'll take {name}",
+    "give me {name}"
+  ],
+  "else": [
+    "{name}",
+    "i want {name}",
+    "i would like to have {name}",
+    "i'll take {name}",
+    "give me {name}"
+  ]
+}
