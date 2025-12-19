@@ -82,11 +82,11 @@ python main.py --experiment_config_name yy.yaml
 
 | 関数名 | 返り値 | 役割 |
 | - | - | - |
-| reward_function | numpy.ndarray | 前の環境と次の環境から，報酬を返します。 |
+| reward_function | float | 前の環境と次の環境から，報酬を返します。 |
 | termination_function | bool | 前の環境と次の環境から，そのステップでterminationするかを返します。 |
 | truncation_function | bool | 次の環境から，そのステップでtruncationするかを返します。 |
 | internal_state_update_function | numpy.ndarray | 現時点での内部状態と，対話のフィードバックから，次の内部状態を返します。 |
-| observation_function | numpy.ndarray | 次の環境から，観察空間を返します。 |
+| observation_function | dict[str, numpy.ndarray] | 次の環境から，観察空間を返します。 |
 | initial_internal_state_function | numpy.ndarray | 環境がリセットされるときの内部状態を返します。 |
 
 これらの関数のうちいずれでも定義されていない場合は，エラーが発生します。
@@ -188,8 +188,7 @@ def wrap_task_env(base_env):
 
 | 関数名 | 返り値 | 説明 |
 | - | - | - |
-| pretrain | None | エージェントにおけるモジュールで，事前学習が必要な場合はここに定義。 |
-| action2speech | np.ndarray | 引数で与えられた強化学習の行動(action)を，音声データに変換する関数。<font color="red">これは Wrapper を独自に定義して適用しないと使用されません。</font> |
+| action2speech | numpy.ndarray | 引数で与えられた強化学習の行動(action)を，音声データに変換する関数。<font color="red">これは Wrapper を独自に定義して適用しないと使用されません。</font> |
 
 その後，`BaseTrainer` を継承してトレーナーを定義するのが簡便です。
 `BaseTrainer` は次のようなAPIを持ちます。
@@ -211,13 +210,18 @@ def wrap_task_env(base_env):
 | i2u | BaseImage2Unit | Image2Unit のインスタンス。 |
 | s2u | BaseSpeech2Unit | Speech2Unit のインスタンス。 |
 | u2s | BaseUnit2Speech | Unit2Speech のインスタンス。 |
+
+また、以下の関数をもつ `BaseTrainerWithUnits` を継承した Trainer を定義する必要があります。
+
+| 名前 | 型/返り値 | 説明 |
+| - | - | - |
 | train_i2u | None | I2Uモデルを訓練する場合定義してください。 |
 | train_u2s | None | U2Sモデルを訓練する場合定義してください。 |
-| train_s2u | None | S2Uモデルを訓練する場合定義してください。 |
 
 ## タスクjsonファイルの書き方
 
-タスクjsonファイルは，名称を `<task_name>.json` として，タスクフォルダの中に配置してください。\<task_name\> にはタスクの名称を与えてください。
+タスクjsonファイルは，名称を `xx.json` として，タスクフォルダの中に配置してください。
+ここで `xx` には、`task_config.json` の `task_config_name` の値を指定してください。
 
 タスクファイルは，おおよそ次のような構造を持ちます。
 
@@ -442,7 +446,7 @@ Your response should follow this JSON format:
 | - | - | - |
 | scene_id | int | この時点での場面IDを表します。場面IDはタスク定義ファイルにあるものと同一です。|
 | prompt_waveform | numpy.ndarray | 環境側の発話です。|
-| images | numpy.ndarray | 環境側が提示している画像です。|
+| images | list[numpy.ndarray] | 環境側が提示している画像です。|
 
 ### `DialogueFeedback` クラス
 
@@ -462,7 +466,7 @@ Your response should follow this JSON format:
 | 名前 | 型 | 説明 |
 | - | - | - |
 | id | int | アイテムIDを表します。アイテムIDはタスク定義ファイルにあるものと同一です。|
-| image | numpy.ndarray | 画像そのものを表します。|
+| image | Optional[numpy.ndarray] | 画像そのものを表します。|
 | attributes | dict[str, Any] | タスク定義ファイルにおいて，このアイテムに対して定義されていた `attributes` を表します。|
 
 ## ライセンス

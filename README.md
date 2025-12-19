@@ -81,11 +81,11 @@ To be detailed, following functions are defined.
 
 | Function | Return value | Role |
 | - | - | - |
-| reward_function | numpy.ndarray | Returns reward according to the previous environment and the next one. |
+| reward_function | float | Returns reward according to the previous environment and the next one. |
 | termination_function | bool | Returns whether it terminates according to the previous environment and the next one. |
 | truncation_function | bool | Returns whether it truncates according to the next environment. |
 | internal_state_update_function | numpy.ndarray | Returns next internal state according to the internal state on this step and the feedback of dialogue. |
-| observation_function | numpy.ndarray | Returns observation space according to the next environment. |
+| observation_function | dict[str, numpy.ndarray] | Returns observation space according to the next environment. |
 | initial_internal_state_function | numpy.ndarray | Returns the internal state when the environment resets. |
 
 The error will occur if any function on the above isn't defined.
@@ -186,8 +186,7 @@ This `BaseAgent` has some needed APIs to have dialogue learning.
 
 | name | return value | explanation |
 | - | - | - |
-| pretrain | None | If you have some modules that needs to be pretrained, please define this function. |
-| action2speech | np.ndarray | It converts action of reinforcement learning to audio data. <font color="red">This function won't be used unless you define Wrapper.</font> |
+| action2speech | numpy.ndarray | It converts action of reinforcement learning to audio data. <font color="red">This function won't be used unless you define Wrapper.</font> |
 
 Then, it's simple to define trainer, with inheriting `BaseTrainer`.
 `BaseTrainer` has following APIs.
@@ -208,13 +207,18 @@ The files to be defined are same, but if you use units, you can define agent wit
 | i2u | BaseImage2Unit | The instance of Image2Unit. |
 | s2u | BaseSpeech2Unit | The instance of Speech2Unit. |
 | u2s | BaseUnit2Speech | The instance of Unit2Speech. |
+
+Also, you have to define the trainer that inherits `BaseTrainerWithUnits`, that has following functions.
+
+| name | type/return value | explanation |
+| - | - | - |
 | train_i2u | None | Please define if you train I2U model. |
 | train_u2s | None | Please define if you train U2S model. |
-| train_s2u | None | Please define if you train S2U model. |
 
 ## How to write task json file
 
-Task json file should be named as `<task_name>.json`, and place it in task folder (e.g. in tasks/food_task for food_task). The name of the task should be given on \<task_name\>.
+Task json file should be named as `xx.json`, and place it in task folder (e.g. in tasks/food_task for food_task).
+Here `xx` is the value that is specified on `task_config_name` in `task_config.json`.
 
 Task file can be structured as follows:
 
@@ -436,7 +440,7 @@ This class contains the following get-only properties.
 | - | - | - |
 | scene_id | int | The scene id on this point. The id is same as on the task defined file. |
 | prompt_waveform | numpy.ndarray | The utterance from the environment. |
-| images | numpy.ndarray | The images proposed by the environment. |
+| images | list[numpy.ndarray] | The images proposed by the environment. |
 
 ### `DialogueFeedback` class
 
@@ -456,7 +460,7 @@ This class contains the following get-only properties.
 | name | type | explanation |
 | - | - | - |
 | id | int | Represents item ID. Item ID is the same as on the task defined file. |
-| image | numpy.ndarray | The image itself. |
+| image | Optional[numpy.ndarray] | The image itself. |
 | attributes | dict[str, Any] | `attributes` defined on this item on the task defined file. |
 
 ## License

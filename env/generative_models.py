@@ -78,7 +78,7 @@ class SpeechRecognizerComponent:
 
     def speech_to_text(self, waveform: np.ndarray) -> str:
         # Convert speech to text
-        waveform = self.resampler(torch.from_numpy(waveform).to(self.device)).cpu().numpy()
+        waveform = self.resampler(torch.from_numpy(waveform).to(self.device).float()).cpu().numpy()
         recognized_text = self.asr_pipe(
             {"sampling_rate": 16000, "raw": waveform}, generate_kwargs={"language": "english"}
         )["text"]
