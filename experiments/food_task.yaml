@@ -1,0 +1,220 @@
+base:
+  task_name: "food_task"
+  agent_name: "sample01"
+  device: "cuda"
+  dir_id: "1"
+  sampling_rate: 22050
+
+
+pretrain:
+  device: "cuda"
+  audio:
+    noise_num: 5
+    overwrite_audio_dataset: False
+    SNR: 30
+    model_name: "kokoro"
+    voice: "af_heart"
+  image:
+    train_images_per_folder: 30
+    test_images_per_folder: 10
+    overwrite_image_dataset: False
+    batch_size: 16
+    model_name: "Mann-E_Turbo"
+    
+    model:
+      num_inference_steps: 10
+      guidance_scale: 8.0
+      height: 512
+      width: 512
+  I2U:
+    train_i2u: True
+    dataset:
+      captions_per_image: 5
+      min_word_freq: 1
+      max_len: 100
+    batch_size: 32
+    num_workers: 0
+    lr: 0.0001
+    epoch: 100
+    pin_memory: False
+  U2S:
+    u2m:
+      train_u2m: True
+      tacotron2: "models/U2S/outdir/checkpoint_26000"
+      filelist_name_train: "audio_text_train_filelist.txt"
+      filelist_name_val: "audio_text_val_filelist.txt"
+      filelist_name_test: "audio_text_test_filelist.txt"
+
+      checkpoint_name:  # Blank is acceptable
+      warm_start: false # Blank is acceptable
+      n_gpus: 1         # Blank is acceptable
+      rank: 0           # Blank is acceptable
+      group_name:       # Blank is acceptable
+
+      device: "cuda"
+
+      experiment:
+        epochs: 241
+        iters_per_checkpoint: 2000
+        seed: 1234
+        dynamic_loss_scaling: true
+        fp16_run: false
+        distributed_run: false
+        dist_backend: "nccl"
+        dist_url: "tcp://localhost:54321"
+        cudnn_enabled: true
+        cudnn_benchmark: false
+        ignore_layers: ["embedding.weight"]
+
+      data:
+        load_mel_from_disk: false
+        text_cleaners: ["english_cleaners"]
+
+      audio:
+        max_wav_value: 32768.0
+        sampling_rate: 22050
+        filter_length: 1024
+        hop_length: 256
+        win_length: 1024
+        n_mel_channels: 80
+        mel_fmin: 0.0
+        mel_fmax: 8000.0
+
+      model:
+        n_symbols: 16384
+        symbols_embedding_dim: 512
+        
+        # Encoder parameters
+        encoder_kernel_size: 3
+        encoder_n_convolutions: 1
+        encoder_embedding_dim: 512
+        
+        # Decoder parameters
+        n_frames_per_step: 1
+        decoder_rnn_dim: 1024
+        prenet_dim: 256
+        max_decoder_steps: 1000
+        gate_threshold: 0.5
+        p_attention_dropout: 0.1
+        p_decoder_dropout: 0.1
+        
+        # Attention parameters
+        attention_rnn_dim: 1024
+        attention_dim: 128
+        
+        # Location Layer parameters
+        attention_location_n_filters: 32
+        attention_location_kernel_size: 31
+        
+        # Mel-post processing network parameters
+        postnet_embedding_dim: 512
+        postnet_kernel_size: 5
+        postnet_n_convolutions: 5
+
+      optimization:
+        use_saved_learning_rate: false
+        learning_rate: 1.0e-3
+        weight_decay: 1.0e-6
+        grad_clip_thresh: 1.0
+        batch_size: 256
+        mask_padding: true
+    
+    m2s:
+      resblock: "1"
+      num_gpus: 0
+      batch_size: 16
+      learning_rate: 0.0002
+      adam_b1: 0.8
+      adam_b2: 0.99
+      lr_decay: 0.999
+      seed: 1234
+
+      upsample_rates: [8, 8, 2, 2]
+      upsample_kernel_sizes: [16, 16, 4, 4]
+      upsample_initial_channel: 512
+      resblock_kernel_sizes: [3, 7, 11]
+      resblock_dilation_sizes:
+        - [1, 3, 5]
+        - [1, 3, 5]
+        - [1, 3, 5]
+
+      segment_size: 8192
+      num_mels: 80
+      num_freq: 1025
+      n_fft: 1024
+      hop_size: 256
+      win_size: 1024
+
+      sampling_rate: 22050
+
+      fmin: 0
+      fmax: 8000
+      fmax_for_loss: null
+
+      num_workers: 4
+
+      dist_config:
+        dist_backend: nccl
+        dist_url: tcp://localhost:54321
+        world_size: 1
+
+
+rl:
+  env:
+    device: "cuda"
+    num_images_per_item: 10
+    enable_audio_response: False
+    record_train_env: False
+    record_eval_env: False
+    llm_prompt_name: "food_task.txt"
+    total_timesteps: 10000
+    eval_freq: 500
+    n_eval_episodes: 50
+    eval_log_path: "RL"
+    deterministic: True
+    render: False
+    generative_models:
+      LLM:
+        max_model_len: 1200
+        gpu_memory_utilization: 0.4
+        max_new_tokens: 150
+        temperature: 0.5
+
+      image_generator:
+        num_inference_steps: 8
+        guidance_scale: 4
+        height: 512
+        width: 512
+
+  agent:
+    device: "cuda"
+    name: "DDPG"
+    I2U:
+      beam_size: 50
+      d_embed: 8
+    
+    U2S:
+      m2s:
+        special_words: {"<unk>", "<start>", "<end>", "<pad>"}
+        model_file_name: "g_02500000"
+        device: "cuda"
+    
+    RL:
+      learning_rate: 0.0001
+      buffer_size: 1000
+      learning_starts: 0
+      batch_size: 32
+      tau: 0.005
+      gamma: 0
+      train_freq: [4, "step"]
+      gradient_steps: 1
+      action_noise_sigma: 0.2
+      handle_timeout_termination: False
+      optimize_memory_usage: False
+      tensorboard_log: "RL"
+      create_eval_env: False
+      verbose: 2
+      seed: 
+      _init_setup_model: True
+      clip_sentence_embedding: 2.5
+      d_image_features: 768

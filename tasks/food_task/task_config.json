@@ -1,0 +1,6 @@
+{
+    "env_name": "FoodTask-v0",
+    "make_env": "tasks.food_task.task_wrappers:wrap_task_env",
+    "max_step": 2,
+    "task_config_name": "food_task_prompt.json"
+  }

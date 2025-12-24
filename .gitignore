@@ -1,4 +1,28 @@
-*__pycache__
+# Ignore cache, data, model files
+cache/*
+!cache/.gitkeep
 
-data
-data.zip
+data/*
+!data/.gitkeep
+
+
+*.ckpt
+*.pth
+*.pt
+*.h5
+*.npz
+*.npy
+*.pkl
+*.joblib
+
+# Python-related
+__pycache__/
+*.pyc
+*.pyo
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints/
+
+# Other
+.DS_Store
+*.log

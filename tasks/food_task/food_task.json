@@ -1,0 +1,150 @@
+{
+  "initial_scene_id": 0,
+  "items": [
+    {
+      "id": 1,
+      "name": "apple",
+      "attributes": {}
+    },
+    {
+      "id": 2,
+      "name": "banana",
+      "attributes": {}
+    },
+    {
+      "id": 3,
+      "name": "carrot",
+      "attributes": {}
+    },
+    {
+      "id": 4,
+      "name": "cherry",
+      "attributes": {}
+    },
+    {
+      "id": 5,
+      "name": "cucumber",
+      "attributes": {}
+    },
+    {
+      "id": 6,
+      "name": "egg",
+      "attributes": {}
+    },
+    {
+      "id": 7,
+      "name": "eggplant",
+      "attributes": {}
+    },
+    {
+      "id": 8,
+      "name": "green_pepper",
+      "attributes": {}
+    },
+    {
+      "id": 9,
+      "name": "hyacinth_bean",
+      "attributes": {}
+    },
+    {
+      "id": 10,
+      "name": "kiwi_fruit",
+      "attributes": {}
+    },
+    {
+      "id": 11,
+      "name": "lemon",
+      "attributes": {}
+    },
+    {
+      "id": 12,
+      "name": "onion",
+      "attributes": {}
+    },
+    {
+      "id": 13,
+      "name": "orange",
+      "attributes": {}
+    },
+    {
+      "id": 14,
+      "name": "potato",
+      "attributes": {}
+    },
+    {
+      "id": 15,
+      "name": "sliced_bread",
+      "attributes": {}
+    },
+    {
+      "id": 16,
+      "name": "small_cabbage",
+      "attributes": {}
+    },
+    {
+      "id": 17,
+      "name": "strawberry",
+      "attributes": {}
+    },
+    {
+      "id": 18,
+      "name": "sweet_potato",
+      "attributes": {}
+    },
+    {
+      "id": 19,
+      "name": "tomato",
+      "attributes": {}
+    },
+    {
+      "id": 20,
+      "name": "white_radish",
+      "attributes": {}
+    }
+  ],
+  "scenes": [
+    {
+      "id": 0,
+      "name": "Grocery Store",
+      "role_description": "a clerk at a grocery store",
+      "speaker_description": "af_heart",
+      "items": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20
+      ],
+      "possible_next_scenes": [
+        1
+      ],
+      "system_guidelines": "1. **If the customer selects a valid product with clear language**: Thank them, provide the selected product, and transition to the next scene.\n2. **If you cannot understand the meaning of the customer's sentence or if there is a grammatical error**: Politely ask for clarification. Do not provide any products, keep item_name as null, and transition to the next scene.\n3. **If the customer selects an invalid product**: Do not provide any products, keep item_name as null, and transition to the next scene.\n4. **If the customer says nothing or arrives without a specific request**: Welcome them to the store and ask what they need. At this stage, do not provide any products, keep item_name as null, and remain in the current scene."
+    },
+    {
+      "id": 1,
+      "name": "Stop",
+      "role_description": "a clerk at the exit",
+      "speaker_description": "af_heart",
+      "items": [],
+      "possible_next_scenes": [
+        1
+      ],
+      "system_guidelines": "Thank them for their visit and end the conversation."
+    }
+  ]
+}

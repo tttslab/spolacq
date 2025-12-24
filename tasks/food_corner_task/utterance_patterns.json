@@ -1,0 +1,20 @@
+{
+  "scene": {
+    "japanese_food_corner":"food_corner",
+    "western_food_corner":"food_corner"
+  },
+  "food_corner": [
+    "{name}",
+    "i want to go to the {name}",
+    "let's go to the {name}",
+    "i'd like to visit the {name}",
+    "take me to the {name}"
+  ],
+  "else": [
+    "{name}",
+    "i want {name}",
+    "i would like to have {name}",
+    "i'll take {name}",
+    "give me {name}"
+  ]
+}

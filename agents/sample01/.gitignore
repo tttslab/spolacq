@@ -1,0 +1,14 @@
+# Ignore all directories (except those specified below)
+/*
+
+# Add excluded directories and files here
+!models/
+!tools/
+!utils/
+
+# Excluded files
+!__init__.py
+!agent.py
+!agent_config.json
+!trainer.py
+!.gitignore
