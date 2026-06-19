@@ -28,7 +28,7 @@ from inference import load_checkpoint
 from models_hifi_gan import Generator
 
 
-def make_action2speach(config):
+def make_action2speech(config):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # I2U
@@ -94,7 +94,7 @@ def make_action2speach(config):
     #     return transcript
 
     @torch.inference_mode()
-    def action2speach(action):
+    def action2speech(action):
         action = torch.from_numpy(action).unsqueeze(0).to(device)
 
         unit_seq = image_to_unit.infer(action=action, beam_size=config["I2U"]["beam_size"])
@@ -119,7 +119,7 @@ def make_action2speach(config):
 
         return audio
 
-    return action2speach
+    return action2speech
 
 
 if __name__ == "__main__":
@@ -136,20 +136,20 @@ if __name__ == "__main__":
         ),
     )
 
-    action2speach = make_action2speach(config)
+    action2speech = make_action2speech(config)
 
     env = SpoLacq3(
         glob("../data/dataset/*/train_number[123]/*.jpg"),
         d_image_features=768,
         d_embed=config["I2U"]["d_embed"],
-        action2text=action2speach,
+        action2text=action2speech,
     )
 
     eval_env = SpoLacq3(
         glob("../data/dataset/*/test_number[12]/*.jpg"),
         d_image_features=768,
         d_embed=config["I2U"]["d_embed"],
-        action2text=action2speach,
+        action2text=action2speech,
     )
 
     model = CustomDDPG(

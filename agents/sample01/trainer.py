@@ -23,13 +23,13 @@ from .tools.hifi_gan.env import AttrDict
 
 # from food_task.py
 class Action2SpeechWrapper(gym.Wrapper):
-    def __init__(self, env: gym.Env, action2speach: Callable[[np.ndarray], np.ndarray]):
+    def __init__(self, env: gym.Env, action2speech: Callable[[np.ndarray], np.ndarray]):
         super().__init__(env)
-        self.action2speach = action2speach
+        self.action2speech = action2speech
         self.action_space = self.env.action_space
 
     def step(self, action: np.ndarray) -> tuple[dict, float, bool, bool, dict]:
-        action_waveform = self.action2speach(action)
+        action_waveform = self.action2speech(action)
         observation, reward, terminated, truncated, info = self.env.step(action_waveform)
         # info["action_waveform"] = action_waveform
         return observation, reward, terminated, truncated, info

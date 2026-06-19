@@ -218,13 +218,13 @@ class RLUnit(CustomDDPG):
 
 
 class Action2SpeechWrapper(gym.Wrapper):
-    def __init__(self, env, action2speach, d_image_features, d_embed):
+    def __init__(self, env, action2speech, d_image_features, d_embed):
         super().__init__(env)
-        self.action2speach = action2speach
+        self.action2speech = action2speech
         self.action_space = gym.spaces.Box(low=-10000, high=10000, shape=(d_image_features + d_embed,))
 
     def step(self, action: np.ndarray) -> Tuple[dict, float, bool, bool, dict]:
-        action_waveform = self.action2speach(action)
+        action_waveform = self.action2speech(action)
         observation, reward, terminated, truncated, info = self.env.step(action_waveform)
         # info["action_waveform"] = action_waveform
         return observation, reward, terminated, truncated, info

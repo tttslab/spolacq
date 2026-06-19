@@ -182,7 +182,7 @@ class CustomMu(nn.Module):
                 embed = layer(embed)
 
         if self.training:
-            alpha = F.softmax(alpha, dim=1)
+            alpha = F.gumbel_softmax(alpha, tau=10, hard=True, dim=1)
             image_features = alpha[:, 0:1] * leftimage_features + alpha[:, 1:2] * rightimage_features
         else:
             image_features = torch.stack(
@@ -463,7 +463,7 @@ class CustomDDPG(TD3):
         env: Union[GymEnv, str],
         learning_rate: Union[float, Schedule] = 1e-4,
         buffer_size: int = 1000,  # 1e6
-        learning_starts: int = 0,
+        learning_starts: int = 100,
         batch_size: int = 32,
         tau: float = 0.005,
         gamma: float = 0,
@@ -561,7 +561,8 @@ class CustomDDPG(TD3):
         # Select action randomly or according to policy
         if self.num_timesteps < learning_starts and not (self.use_sde and self.use_sde_at_warmup):
             # Warmup phase
-            unscaled_action = np.array([self.action_space.sample() for _ in range(n_envs)])
+            # unscaled_action = np.array([self.action_space.sample() for _ in range(n_envs)])
+            unscaled_action, _ = self.predict(self._last_obs, deterministic=False)
         else:
             # Note: when using continuous actions,
             # we assume that the policy uses tanh to scale the action
